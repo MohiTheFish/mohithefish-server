@@ -27,12 +27,18 @@ gameChoices.forEach(game => {
       players.set(socket.id, data);
     })
     
-  
     // when socket disconnects, remove it from the list:
     socket.on("disconnect", () => {
       players.delete(socket.id);
       console.info(`Client gone [id=${socket.id}]`);
     });
   });
+})
+
+server.of('/spyfall').on("connection", (socket) => {
+  socket.on('hello world', function(data) {
+    console.log(data);
+    socket.emit('print', 'welcome');
+  })
 })
 
