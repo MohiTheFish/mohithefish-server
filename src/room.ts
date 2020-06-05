@@ -1,4 +1,4 @@
-class Room {
+export default class Room {
   hostname: string;
   members: Array<string>;
   constructor(hostname: any) {
@@ -16,6 +16,4 @@ class Room {
       this.members.splice(index, 1);
     }
   }
-
 }
-module.exports = Room;

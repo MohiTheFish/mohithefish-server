@@ -1,10 +1,12 @@
-class Player {
+import { DataType } from './index';
+
+export default class Player {
   username: string;
   gamename: string;
   uuid: string;
   disconnectTime: number;
   
-  constructor(data: any) {
+  constructor(data: DataType) {
     this.username = data.username;
     this.gamename = data.gamename;
     this.uuid = data.uuid;
@@ -14,6 +16,8 @@ class Player {
   disconnectPlayer() {
     this.disconnectTime = Date.now();
   }
-}
 
-module.exports = Player;
+  connectPlayer() {
+    this.disconnectTime = -1;
+  }
+}
