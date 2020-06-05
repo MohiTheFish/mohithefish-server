@@ -1,5 +1,10 @@
 class Player {
-  constructor(data) {
+  username: string;
+  gamename: string;
+  uuid: string;
+  disconnectTime: number;
+  
+  constructor(data: any) {
     this.username = data.username;
     this.gamename = data.gamename;
     this.uuid = data.uuid;
