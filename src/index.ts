@@ -1,11 +1,10 @@
 
 console.log('started server');
 
-import { Socket } from "socket.io";
+import io, { Socket } from "socket.io";
 import Player from './player';
 import Room from './room';
 
-const io = require("socket.io");
 const server = io.listen(5000);
 //http:localhost:5000/:game/:roomId
 
@@ -30,10 +29,10 @@ export type PlayerData = {
   disconnectTime: number,
 };
 
-export type JoinRoomData = {
+export type RoomData = {
   uuid: string;
   targetRoom: string;
-}
+};
 
 // event fired every time a new client connects:
 gameChoices.forEach(game => {
@@ -61,15 +60,21 @@ gameChoices.forEach(game => {
       socket.emit('createdRoom', newRoom.getRoomInfo());
     });
 
-    socket.on('joinRoom', function(data: JoinRoomData) {
+    socket.on('joinRoom', function(data: RoomData) {
       const room = rooms.get(data.targetRoom);
       if (room) {
         room.addPlayer(data.uuid);
+        server.in(data.uuid).emit('otherPlayers', room.getRoomInfo());
       }
       else {
         socket.emit('invalidRoom', `${data.targetRoom} was not found.`);
       }
-    })
+    });
+
+    
+    socket.on('leaveRoom', function(data: RoomData) {
+      socket.leave(data.uuid);
+    });
     
     // when socket disconnects, remove it from the list:
     // also keep a time stamp since last login for player
