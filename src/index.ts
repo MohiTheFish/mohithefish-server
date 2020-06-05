@@ -54,7 +54,8 @@ gameChoices.forEach(game => {
     });
 
     socket.on('createRoom', function(uuid:string) {
-      const newRoom  = new Room(uuidToPlayer.get(uuid));
+      const player = uuidToPlayer.get(uuid)!;
+      const newRoom  = new Room(uuid, player.username);
       rooms.set(uuid, newRoom);
       console.log('created a room');
       socket.emit('createdRoom', newRoom.getRoomInfo());

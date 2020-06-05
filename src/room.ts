@@ -1,7 +1,10 @@
 export default class Room {
   hostname: string;
+  roomname: string;
   members: Array<string>;
-  constructor(hostname: any) {
+
+  constructor(roomname: string, hostname: string) {
+    this.roomname = roomname;
     this.hostname = hostname;
     this.members = [hostname];
   }
@@ -10,6 +13,7 @@ export default class Room {
     return {
       hostname: this.hostname,
       members: this.members,
+      roomname: this.roomname,
     };
   }
 
