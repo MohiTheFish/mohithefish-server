@@ -6,6 +6,13 @@ export default class Room {
     this.members = [hostname];
   }
 
+  getRoomInfo() {
+    return {
+      hostname: this.hostname,
+      members: this.members,
+    };
+  }
+
   addPlayer(name: string) {
     this.members.push(name);
   }

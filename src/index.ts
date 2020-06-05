@@ -19,16 +19,21 @@ gameChoices.forEach(game => {
   })
 })
 
-const rooms = new Map();
+const rooms = new Map<string, Room>();
 const uuidToPlayer = new Map<string, Player>();
 const socketIdTouuid = new Map<string, string>();
 
-export type DataType = {
+export type PlayerData = {
   uuid: string,
   username: string,
   gamename: string,
   disconnectTime: number,
 };
+
+export type JoinRoomData = {
+  uuid: string;
+  targetRoom: string;
+}
 
 // event fired every time a new client connects:
 gameChoices.forEach(game => {
@@ -37,20 +42,34 @@ gameChoices.forEach(game => {
   
     // When user first connects, they send over some data about what game they are playing
     // They also provide their name.
-    socket.on('initialConnection', function (data: DataType) {
+    socket.on('initialConnection', function (data: PlayerData) {
       console.log(data);
-      if (uuidToPlayer.has(data.uuid)) {
-        uuidToPlayer.get(data.uuid)!.connectPlayer();
+      socketIdTouuid.set(socket.id, data.uuid);
+      const player = uuidToPlayer.get(data.uuid);
+      if (player) {
+        player.connectPlayer();
       }
-      const p = new Player(data);
+      else {
+        uuidToPlayer.set(data.uuid, new Player(data));
+      }
     });
 
     socket.on('createRoom', function(uuid:string) {
-      socket.join(uuid);
-      rooms.set(uuid, new Room(uuidToPlayer.get(uuid)))
+      const newRoom  = new Room(uuidToPlayer.get(uuid));
+      rooms.set(uuid, newRoom);
       console.log('created a room');
-      socket.emit('createdRoom', uuid);
+      socket.emit('createdRoom', newRoom.getRoomInfo());
     });
+
+    socket.on('joinRoom', function(data: JoinRoomData) {
+      const room = rooms.get(data.targetRoom);
+      if (room) {
+        room.addPlayer(data.uuid);
+      }
+      else {
+        socket.emit('invalidRoom', `${data.targetRoom} was not found.`);
+      }
+    })
     
     // when socket disconnects, remove it from the list:
     // also keep a time stamp since last login for player
@@ -63,8 +82,11 @@ gameChoices.forEach(game => {
     });
 
     socket.on("disconnect", () => {
-      const playerid = socketIdTouuid.get(socket.id)!;
-      const player = uuidToPlayer.get(playerid)!;
+      console.log(socket.id);
+      const uid = socketIdTouuid.get(socket.id)!;
+      console.log(uid);
+      const player = uuidToPlayer.get(uid)!;
+      console.log(player);
       player.disconnectPlayer();
       console.info(`Client gone [id=${socket.id}]`);
     });
