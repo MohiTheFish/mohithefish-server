@@ -1,5 +1,8 @@
 console.log('started server');
 
+const Room = require("./room");
+const Player = require("./player");
+
 const io = require("socket.io");
 const server = io.listen(5000);
 //http:localhost:5000/:game/:roomId
@@ -14,8 +17,10 @@ gameChoices.forEach(game => {
   })
 })
 
-const players = new Map();
+const rooms = new Map();
 const socketIDtoPlayer = new Map();
+
+const players = [];
 
 // event fired every time a new client connects:
 gameChoices.forEach(game => {
@@ -26,16 +31,15 @@ gameChoices.forEach(game => {
     // They also provide their name.
     socket.on('initialConnection', function (data) {
       console.log(data);
-      data.disconnectTime = -1;
-      socketIDtoPlayer.set(socket.id, data.uuid);
-      players.set(data.uuid, data);
-    })
+      const p = new Player(data);
+      socketIDtoPlayer.set(socket.id, p);
+      players.push(p);
+    });
 
     socket.on('createRoom', function(uuid) {
-      console.log(uuid);
       socket.join(uuid);
+      rooms.set(uuid, new Room(players.get(uuid)))
       console.log('created a room');
-      console.log(socket.rooms);
       socket.emit('createdRoom', uuid);
     });
     
@@ -43,20 +47,17 @@ gameChoices.forEach(game => {
     // also keep a time stamp since last login for player
     socket.on("forceDisconnect", function(){
       const player = socketIDtoPlayer.get(socket.id);
-      const playerData = players.get(player);
-      playerData.disconnectTime = Date.now();
+      player.disconnectPlayer();
       socket.disconnect();
-      console.info(`Client gone [id=${socket.id}]`);
+      console.info(`Client forced out [id=${socket.id}]`);
     });
 
     socket.on("disconnect", () => {
       const player = socketIDtoPlayer.get(socket.id);
-      const playerData = players.get(player);
-      playerData.disconnectTime = Date.now();
+      player.disconnectPlayer();
       console.info(`Client gone [id=${socket.id}]`);
     });
 
-    socket.on
   });
 })
 
