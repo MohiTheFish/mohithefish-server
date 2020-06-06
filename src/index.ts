@@ -48,6 +48,7 @@ gameChoices.forEach(game => {
     // They also provide their name.
     socket.on('initialConnection', function (data: PlayerData) {
       console.log(data);
+      // For disconnect, we want to be able to determine which player was the one that connected.
       socketIdTouuid.set(socket.id, data.uuid);
       const player = uuidToPlayer.get(data.uuid);
       if (player) {
@@ -59,21 +60,28 @@ gameChoices.forEach(game => {
     });
 
     socket.on('createRoom', function(uuid:string) {
+      // Have this socket join the room;
+      socket.join(uuid);
+      // Get player from their uid;
       const player = uuidToPlayer.get(uuid)!;
       let newRoom = null;
+      // If this player has not already created a room, set it up.
       if(!rooms.has(uuid)) {
         newRoom = new Room(uuid, player.username);
         rooms.set(uuid, newRoom);
         nameSpaceToRooms.get(game)!.push(newRoom);
       }
       else {
+        // Otherwise just return it.
         newRoom = rooms.get(uuid)!;
       }
+
+      // Return room info.
       socket.emit('createdRoom', newRoom.getRoomInfo());
     });
 
 
-    socket.on('getAvailableRooms', function(uuid){
+    socket.on('getAvailableRooms', function(uuid) {
       //If user decides they want to join a room instead of create one,
       if (rooms.has(uuid)) {  
         //we should have them leave to be sure they aren't left over as a player.
@@ -86,15 +94,19 @@ gameChoices.forEach(game => {
         }
       }
 
+      // Otherwise just iterate through all the rooms this namespace has. 
+      // @TODO - Add checks for max occupancy.
       const availableRooms = nameSpaceToRooms.get(game)!.map(room => room.getRoomInfo());
       socket.emit('availableRooms', availableRooms);
     });
 
     socket.on('joinRoom', function(data: RoomData) {
+      // The user is trying to join a room.
       const room = rooms.get(data.targetRoom);
       if (room) {
         room.addPlayer(data.uuid);
         const roomInfo = room.getRoomInfo();
+        socket.join(data.targetRoom);
         server.to(data.uuid).emit('othersJoined', roomInfo);
         socket.emit('youJoined', roomInfo);
       }
@@ -104,7 +116,19 @@ gameChoices.forEach(game => {
     });
     
     socket.on('leaveRoom', function(data: RoomData) {
-      socket.leave(data.uuid);
+      // First check if room exists.
+      const {targetRoom, uuid} = data;
+      const room = rooms.get(targetRoom);
+      if (room) {  
+
+        // Have user leave. 
+        socket.leave(targetRoom);
+        if (room.members.length === 0) {
+          rooms.delete(uuid);
+        } else {
+          room.removeHost();
+        }
+      }
     });
     
     // when socket disconnects, remove it from the list:
