@@ -1,31 +1,41 @@
+import Player from './player';
+
 export default class Room {
-  hostname: string;
+  host: Player;
   roomname: string;
-  members: Array<string>;
+  members: Array<Player>;
   num: number = 0;
 
-  constructor(roomname: string, hostname: string) {
+  constructor(roomname: string, host: Player) {
     this.roomname = roomname;
-    this.hostname = `${hostname}`;
+    this.host = host;
     this.num += 1;
     this.members = [];
   }
 
   getRoomInfo() {
+    let memberNames = this.members.map(m => m.username);
     return {
-      hostname: this.hostname,
-      members: this.members,
+      hostname: this.host.username,
+      members: memberNames,
       roomname: this.roomname,
     };
   }
 
-  addPlayer(name: string) {
-    this.members.push(`${name}`);
+  getConciseRoomInfo() {
+    return {
+      hostname: this.host.username,
+      numPlayers: this.members.length,
+    };
+  }
+
+  addPlayer(player: Player) {
+    this.members.push(player);
     this.num += 1;
   }
 
-  removePlayer(name: string) {
-    const index = this.members.indexOf(name);
+  removePlayer(player: Player) {
+    const index = this.members.indexOf(player);
     if (index > -1) {
       this.members.splice(index, 1);
     }
