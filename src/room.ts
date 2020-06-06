@@ -42,7 +42,7 @@ export default class Room {
   }
 
   removeHost() {
-    this.hostname = this.members[0];
+    this.host = this.members[0];
     this.members.shift();
   }
 }
