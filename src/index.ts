@@ -67,7 +67,7 @@ gameChoices.forEach(game => {
       let newRoom = null;
       // If this player has not already created a room, set it up.
       if(!rooms.has(uuid)) {
-        newRoom = new Room(uuid, player.username);
+        newRoom = new Room(uuid, player);
         rooms.set(uuid, newRoom);
         nameSpaceToRooms.get(game)!.push(newRoom);
       }
@@ -83,9 +83,9 @@ gameChoices.forEach(game => {
 
     socket.on('getAvailableRooms', function(uuid) {
       //If user decides they want to join a room instead of create one,
-      if (rooms.has(uuid)) {  
+      const room = rooms.get(uuid);
+      if (room) {  
         //we should have them leave to be sure they aren't left over as a player.
-        const room = rooms.get(uuid)!;
         socket.leave(uuid); 
         if (room.members.length === 0) {
           rooms.delete(uuid);
@@ -96,22 +96,25 @@ gameChoices.forEach(game => {
 
       // Otherwise just iterate through all the rooms this namespace has. 
       // @TODO - Add checks for max occupancy.
-      const availableRooms = nameSpaceToRooms.get(game)!.map(room => room.getRoomInfo());
+      const availableRooms = nameSpaceToRooms.get(game)!.map(room => room.getConciseRoomInfo());
       socket.emit('availableRooms', availableRooms);
     });
 
     socket.on('joinRoom', function(data: RoomData) {
       // The user is trying to join a room.
-      const room = rooms.get(data.targetRoom);
+      const {targetRoom, uuid} = data;
+      const room = rooms.get(targetRoom);
       if (room) {
-        room.addPlayer(data.uuid);
+        const player = uuidToPlayer.get(uuid)!;
+        room.addPlayer(player);
+
         const roomInfo = room.getRoomInfo();
         socket.join(data.targetRoom);
         server.to(data.uuid).emit('othersJoined', roomInfo);
         socket.emit('youJoined', roomInfo);
       }
       else {
-        socket.emit('invalidRoom', `${data.targetRoom} was not found.`);
+        socket.emit('invalidRoom', `${targetRoom} was not found.`);
       }
     });
     
@@ -120,13 +123,12 @@ gameChoices.forEach(game => {
       const {targetRoom, uuid} = data;
       const room = rooms.get(targetRoom);
       if (room) {  
-
         // Have user leave. 
         socket.leave(targetRoom);
         if (room.members.length === 0) {
           rooms.delete(uuid);
         } else {
-          room.removeHost();
+          room.removePlayer(uuidToPlayer.get(uuid)!);
         }
       }
     });
