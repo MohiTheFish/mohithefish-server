@@ -4,18 +4,24 @@ import { PlayerData } from './index';
 export default class Player {
   username: string;
   gamename: string;
-  uuid: string;
+  userId: string;
   disconnectTime: number;
-  
+  roomname: string;
+
   constructor(data: PlayerData) {
     this.username = data.username;
     this.gamename = data.gamename;
-    this.uuid = data.uuid;
+    this.userId = data.userId;
     this.disconnectTime = -1;
+    this.roomname = "";
   }
 
   disconnectPlayer() {
     this.disconnectTime = Date.now();
+  }
+
+  joinRoom(roomname: string) {
+    this.roomname = roomname;
   }
 
   connectPlayer() {

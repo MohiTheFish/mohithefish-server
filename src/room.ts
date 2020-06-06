@@ -10,16 +10,15 @@ export default class Room {
   host: Player;
   roomname: string;
   members: Array<Player>;
-  num: number = 0;
 
   constructor(roomname: string, host: Player) {
     this.roomname = roomname;
     this.host = host;
-    this.num += 1;
+    host.roomname = roomname;
     this.members = [];
   }
 
-  getRoomInfo() {
+  getRoomInfo() : any{
     let memberNames = this.members.map(m => m.username);
     return {
       hostname: this.host.username,
@@ -36,20 +35,26 @@ export default class Room {
     };
   }
 
-  addPlayer(player: Player) {
+  addPlayer(player: Player) : void {
     this.members.push(player);
-    this.num += 1;
+    player.roomname = this.roomname;
   }
 
-  removePlayer(player: Player) {
+  removePlayer(player: Player) : void {
     const index = this.members.indexOf(player);
     if (index > -1) {
       this.members.splice(index, 1);
     }
+    player.roomname = "";
   }
 
-  removeHost() {
+  removeHost() : boolean {
+    if (this.members.length === 0) {
+      return true;
+    }
+    this.host.roomname = "";
     this.host = this.members[0];
     this.members.shift();
+    return false;
   }
 }
