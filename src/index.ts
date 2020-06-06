@@ -85,11 +85,12 @@ gameChoices.forEach(game => {
       const player = userIdToPlayer.get(userId)!;
       // If player is already in a room
       if (player.roomname) {
+        console.log(`${player.username} was in ${player.roomname}`);
         const roomname = player.roomname;
         // Remove them from that room
-        socket.leave(player.roomname);
+        socket.leave(roomname);
         const index = rooms.get(roomname)!.removePlayer(player);
-        server.of(game).to(player.roomname).emit('playerLeft', index);
+        server.of(game).to(roomname).emit('playerLeft', index);
       }
 
       // Create a new room id.
