@@ -40,12 +40,13 @@ export default class Room {
     player.roomname = this.roomname;
   }
 
-  removePlayer(player: Player) : void {
+  removePlayer(player: Player) : number {
     const index = this.members.indexOf(player);
     if (index > -1) {
       this.members.splice(index, 1);
     }
     player.roomname = "";
+    return index;
   }
 
   removeHost() : boolean {
