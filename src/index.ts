@@ -73,9 +73,21 @@ gameChoices.forEach(game => {
     });
 
 
-    socket.on('getAvailableRooms', function(){
-      const rooms = nameSpaceToRooms.get(game)!.map(room => room.getRoomInfo());
-      socket.emit('availableRooms', rooms);
+    socket.on('getAvailableRooms', function(uuid){
+      //If user decides they want to join a room instead of create one,
+      if (rooms.has(uuid)) {  
+        //we should have them leave to be sure they aren't left over as a player.
+        const room = rooms.get(uuid)!;
+        socket.leave(uuid); 
+        if (room.members.length === 0) {
+          rooms.delete(uuid);
+        } else {
+          room.removeHost();
+        }
+      }
+
+      const availableRooms = nameSpaceToRooms.get(game)!.map(room => room.getRoomInfo());
+      socket.emit('availableRooms', availableRooms);
     });
 
     socket.on('joinRoom', function(data: RoomData) {

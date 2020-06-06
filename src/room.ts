@@ -30,4 +30,9 @@ export default class Room {
       this.members.splice(index, 1);
     }
   }
+
+  removeHost() {
+    this.hostname = this.members[0];
+    this.members.shift();
+  }
 }
