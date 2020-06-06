@@ -83,8 +83,10 @@ gameChoices.forEach(game => {
 
     socket.on('getAvailableRooms', function(uuid) {
       //If user decides they want to join a room instead of create one,
+      console.log(uuid);
       const room = rooms.get(uuid);
       if (room) {  
+        console.log(`${uuid} has switched to Join Room`);
         //we should have them leave to be sure they aren't left over as a player.
         socket.leave(uuid); 
         if (room.members.length === 0) {
