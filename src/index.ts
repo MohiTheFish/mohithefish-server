@@ -3,7 +3,7 @@ console.log('started server');
 
 import io, { Socket } from "socket.io";
 import Player from './player';
-import Room from './room';
+import Room, {ConciseRoomInfo} from './room';
 
 const server = io.listen(5000);
 //http:localhost:5000/:game/:roomId
@@ -96,7 +96,30 @@ gameChoices.forEach(game => {
 
       // Otherwise just iterate through all the rooms this namespace has. 
       // @TODO - Add checks for max occupancy.
-      const availableRooms = nameSpaceToRooms.get(game)!.map(room => room.getConciseRoomInfo());
+      // Gonna do some additional cleaning here. 
+      const candidateRooms = nameSpaceToRooms.get(game)!;
+      console.log(candidateRooms);
+      const availableRooms: Array<ConciseRoomInfo> = [];
+      for(let i=0; i<candidateRooms.length; i++){
+        const room = candidateRooms[i];
+        const uuid = room.host.uuid;
+
+        /**
+         * TODO
+         * TO TEST
+         * Have 3 people A, B, C
+         * Have A create a room.
+         * Have B and C join A's room.
+         * Have A leave. 
+         * See output of this. 
+         */
+        if (rooms.has(uuid)) {
+          availableRooms.push(room.getConciseRoomInfo());
+        } else {
+          candidateRooms.splice(i, 1);
+          i--;
+        }
+      }
       socket.emit('availableRooms', availableRooms);
     });
 
@@ -118,20 +141,21 @@ gameChoices.forEach(game => {
       }
     });
     
-    socket.on('leaveRoom', function(data: RoomData) {
-      // First check if room exists.
-      const {targetRoom, uuid} = data;
-      const room = rooms.get(targetRoom);
-      if (room) {  
-        // Have user leave. 
-        socket.leave(targetRoom);
-        if (room.members.length === 0) {
-          rooms.delete(uuid);
-        } else {
-          room.removePlayer(uuidToPlayer.get(uuid)!);
-        }
-      }
-    });
+    // socket.on('leaveRoom', function(data: RoomData) {
+    //   // First check if room exists.
+    //   const {targetRoom, uuid} = data;
+    //   const targetRoom
+    //   const room = rooms.get(uuidToPlayer.get(targetRoom)!);
+    //   if (room) {  
+    //     // Have user leave. 
+    //     socket.leave(targetRoom);
+    //     if (room.members.length === 0) {
+    //       rooms.delete(uuid);
+    //     } else {
+    //       room.removePlayer(uuidToPlayer.get(uuid)!);
+    //     }
+    //   }
+    // });
     
     // when socket disconnects, remove it from the list:
     // also keep a time stamp since last login for player
@@ -144,11 +168,20 @@ gameChoices.forEach(game => {
     });
 
     socket.on("disconnect", () => {
-      console.log(socket.id);
-      const uid = socketIdTouuid.get(socket.id)!;
-      console.log(uid);
-      const player = uuidToPlayer.get(uid)!;
-      console.log(player);
+      const uuid = socketIdTouuid.get(socket.id)!;
+      const room = rooms.get(uuid)
+      // If the person disconnecting is the host of the room,
+      // Make the next person the host. 
+      if (room) {
+        // If there is no other person, just delete the room. 
+        if (room.members.length === 0) {
+          rooms.delete(uuid);
+        } else {
+          // Otherwise we just need to remove the host.
+          room.removeHost();
+        }
+      }
+      const player = uuidToPlayer.get(uuid)!;
       player.disconnectPlayer();
       console.info(`Client gone [id=${socket.id}]`);
     });
