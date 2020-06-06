@@ -18,6 +18,7 @@ gameChoices.forEach(game => {
   })
 })
 
+const nameSpaceToRooms = new Map<string, Room[]>();
 const rooms = new Map<string, Room>();
 const uuidToPlayer = new Map<string, Player>();
 const socketIdTouuid = new Map<string, string>();
@@ -33,6 +34,10 @@ export type RoomData = {
   uuid: string;
   targetRoom: string;
 };
+
+gameChoices.forEach(game => {
+  nameSpaceToRooms.set(game, []);
+});
 
 // event fired every time a new client connects:
 gameChoices.forEach(game => {
@@ -57,21 +62,29 @@ gameChoices.forEach(game => {
       const player = uuidToPlayer.get(uuid)!;
       const newRoom  = new Room(uuid, player.username);
       rooms.set(uuid, newRoom);
+      nameSpaceToRooms.get(game)!.push(newRoom);
       console.log('created a room');
       socket.emit('createdRoom', newRoom.getRoomInfo());
+    });
+
+
+    socket.on('getAvailableRooms', function(){
+      const rooms = nameSpaceToRooms.get(game)!.map(room => room.getRoomInfo());
+      socket.emit('availableRooms', rooms);
     });
 
     socket.on('joinRoom', function(data: RoomData) {
       const room = rooms.get(data.targetRoom);
       if (room) {
         room.addPlayer(data.uuid);
-        server.in(data.uuid).emit('otherPlayers', room.getRoomInfo());
+        const roomInfo = room.getRoomInfo();
+        server.to(data.uuid).emit('othersJoined', roomInfo);
+        socket.emit('youJoined', roomInfo);
       }
       else {
         socket.emit('invalidRoom', `${data.targetRoom} was not found.`);
       }
     });
-
     
     socket.on('leaveRoom', function(data: RoomData) {
       socket.leave(data.uuid);

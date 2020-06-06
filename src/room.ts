@@ -2,11 +2,13 @@ export default class Room {
   hostname: string;
   roomname: string;
   members: Array<string>;
+  num: number = 0;
 
   constructor(roomname: string, hostname: string) {
     this.roomname = roomname;
-    this.hostname = hostname;
-    this.members = [hostname];
+    this.hostname = `${hostname}`;
+    this.num += 1;
+    this.members = [];
   }
 
   getRoomInfo() {
@@ -18,7 +20,8 @@ export default class Room {
   }
 
   addPlayer(name: string) {
-    this.members.push(name);
+    this.members.push(`${name}`);
+    this.num += 1;
   }
 
   removePlayer(name: string) {
