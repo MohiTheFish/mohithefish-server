@@ -128,14 +128,17 @@ gameChoices.forEach(game => {
     socket.on('joinRoom', function(data: RoomData) {
       // The user is trying to join a room.
       const {targetRoom, uuid} = data;
+      console.log(`${uuid} connecting to ${targetRoom}`);
       const room = rooms.get(targetRoom);
       if (room) {
         const player = uuidToPlayer.get(uuid)!;
         room.addPlayer(player);
 
         const roomInfo = room.getRoomInfo();
-        socket.join(data.targetRoom);
-        server.to(data.uuid).emit('othersJoined', roomInfo);
+        server.of(game).to(targetRoom).emit('othersJoined', roomInfo);
+        socket.join(targetRoom);
+        server.to(targetRoom)
+        server.of(game).to(targetRoom).emit('othersJoined', roomInfo);
         socket.emit('youJoined', roomInfo);
       }
       else {

@@ -3,6 +3,7 @@ import Player from './player';
 export type ConciseRoomInfo = {
   hostname: string,
   numPlayers: number,
+  roomname: string,
 };
 
 export default class Room {
@@ -31,6 +32,7 @@ export default class Room {
     return {
       hostname: this.host.username,
       numPlayers: this.members.length,
+      roomname: this.roomname,
     };
   }
 
