@@ -62,7 +62,7 @@ function deleteHost(room: Room, game:string) {
 // event fired every time a new client connects:
 gameChoices.forEach(game => {
   server.of(game).on("connection", (socket: Socket) => {
-    console.info(`Client connected [id=${socket.id}] and is playing ${game}`);
+    // console.info(`Client connected [id=${socket.id}] and is playing ${game}`);
   
     // When user first connects, they send over some data about what game they are playing
     // They also provide their name.
