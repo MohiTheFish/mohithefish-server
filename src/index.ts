@@ -7,7 +7,7 @@ import SpyfallRoom from './Room/spyfall';
 
 
 const server = io.listen(5000);
-server.origins('http://mohithefish.github.io/');
+server.origins(['http://mohithefish.github.io/', 'localhost']);
 //http:localhost:5000/:game/:roomId
 
 const gameChoices = ['/spyfall', '/tictactoe', '/war'];
