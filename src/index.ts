@@ -5,7 +5,7 @@ import Player from './player';
 import Room, {ConciseRoomInfo} from './room';
 import SpyfallRoom from './Room/spyfall';
 
-var allowedOrigins = "http://localhost:* http://127.0.0.1:* http://mohithefish.github.io/:*";
+var allowedOrigins = "http://localhost:* http://127.0.0.1:* http://mohithefish.github.io/:* http://mohithefish.github.io:*";
 const server = io.listen(5000, {
   origins: allowedOrigins,
 });
