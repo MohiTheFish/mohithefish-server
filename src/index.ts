@@ -1,13 +1,14 @@
 
-import io, { Socket } from "socket.io";
+import io, {Socket} from "socket.io";
 import { v4 as uuid } from 'uuid';
 import Player from './player';
 import Room, {ConciseRoomInfo} from './room';
 import SpyfallRoom from './Room/spyfall';
 
-
-const server = io.listen(5000);
-server.origins(['http://mohithefish.github.io/', 'http://localhost:3000']);
+var allowedOrigins = "http://localhost:* http://127.0.0.1:* http://mohithefish.github.io/:*";
+const server = io.listen(5000, {
+  origins: allowedOrigins,
+});
 //http:localhost:5000/:game/:roomId
 
 const gameChoices = ['/spyfall', '/tictactoe', '/war'];
