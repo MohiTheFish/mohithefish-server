@@ -10,6 +10,7 @@ export default class Room {
   host: Player;
   roomname: string;
   members: Array<Player>;
+  currentlyInGame: boolean = false;
 
   constructor(roomname: string, host: Player) {
     this.roomname = roomname;
@@ -57,5 +58,13 @@ export default class Room {
     this.host = this.members[0];
     this.members.shift();
     return false;
+  }
+
+  begin() {
+    this.currentlyInGame = true;
+  }
+
+  end() {
+    this.currentlyInGame = false;
   }
 }

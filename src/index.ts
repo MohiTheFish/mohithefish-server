@@ -5,6 +5,7 @@ import io, { Socket } from "socket.io";
 import { v4 as uuid } from 'uuid';
 import Player from './player';
 import Room, {ConciseRoomInfo} from './room';
+import SpyfallRoom from './Room/spyfall';
 
 const server = io.listen(5000);
 //http:localhost:5000/:game/:roomId
@@ -100,7 +101,18 @@ gameChoices.forEach(game => {
       socket.join(newRoomName);
 
       // Create the new room
-      const newRoom = new Room(newRoomName, player);
+      let newRoom: any;
+      switch(game) {
+        case gameChoices[0]:{
+          newRoom = new SpyfallRoom(newRoomName, player);
+          break;
+        }
+        default: {
+          newRoom = new Room(newRoomName, player);
+        }
+      }
+      console.log('created room');
+      console.log(newRoom);
       
       // Add it to our dictionary
       rooms.set(newRoomName, newRoom);
@@ -169,23 +181,16 @@ gameChoices.forEach(game => {
         socket.emit('invalidRoom', `${targetRoom} was not found.`);
       }
     });
-    
-    // socket.on('leaveRoom', function(data: RoomData) {
-    //   // First check if room exists.
-    //   const {targetRoom, uuid} = data;
-    //   const targetRoom
-    //   const room = rooms.get(uuidToPlayer.get(targetRoom)!);
-    //   if (room) {  
-    //     // Have user leave. 
-    //     socket.leave(targetRoom);
-    //     if (room.members.length === 0) {
-    //       rooms.delete(uuid);
-    //     } else {
-    //       room.removePlayer(uuidToPlayer.get(uuid)!);
-    //     }
-    //   }
-    // });
-    
+
+    socket.on('startGame', function(userId: string) {
+      const player = userIdToPlayer.get(userId)!;
+      const roomname = player.roomname;
+      const room = (rooms.get(roomname)!);
+      const gameState = (<SpyfallRoom> room).begin();
+      console.log(gameState);
+      server.of(game).to(roomname).emit('gameStarted', gameState);
+    });
+
     // when socket disconnects, remove it from the list:
     // also keep a time stamp since last login for player
     socket.on("forceDisconnect", function(){
