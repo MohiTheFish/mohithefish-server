@@ -36,6 +36,7 @@ export type PlayerData = {
 export type RoomData = {
   userId: string;
   targetRoom: string;
+  submittedId: boolean;
 };
 
 gameChoices.forEach(game => {
@@ -85,34 +86,34 @@ gameChoices.forEach(game => {
       // Get player from their userId;
       const player = userIdToPlayer.get(userId)!;
       // If player is already in a room
-      if (player.roomname) {
-        const roomname = player.roomname;
+      if (player.roomId) {
+        const roomId = player.roomId;
         // Remove them from that room
-        socket.leave(roomname);
-        const index = rooms.get(roomname)!.removePlayer(player);
-        server.of(game).to(roomname).emit('playerLeft', index);
+        socket.leave(roomId);
+        const index = rooms.get(roomId)!.removePlayer(player);
+        server.of(game).to(roomId).emit('playerLeft', index);
       }
 
       // Create a new room id.
-      const newRoomName = uuid();
+      const newroomId = uuid();
 
       // Have socket listen on the room
-      socket.join(newRoomName);
+      socket.join(newroomId);
 
       // Create the new room
       let newRoom: any;
       switch(game) {
         case gameChoices[0]:{
-          newRoom = new SpyfallRoom(newRoomName, player);
+          newRoom = new SpyfallRoom(newroomId, player);
           break;
         }
         default: {
-          newRoom = new Room(newRoomName, player);
+          newRoom = new Room(newroomId, player);
         }
       }
       
       // Add it to our dictionary
-      rooms.set(newRoomName, newRoom);
+      rooms.set(newroomId, newRoom);
 
       // Add it to list of rooms available for this game.
       nameSpaceToRooms.get(game)!.push(newRoom);
@@ -121,17 +122,22 @@ gameChoices.forEach(game => {
       socket.emit('createdRoom', newRoom.getRoomInfo());
     });
 
+    socket.on('togglePrivateRoom', function(userId: string) {
+      const player = userIdToPlayer.get(userId)!; 
+      const room = player.roomId; 
+    });
+
 
     socket.on('getAvailableRooms', function(userId:string) {
       // Get player from their userId
       const player = userIdToPlayer.get(userId)!;
       // If user is ALREADY in a room (meaning they are deciding to switch to new room) remove them
-      if (player.roomname) {
-        const roomname = player.roomname;
+      if (player.roomId) {
+        const roomId = player.roomId;
 
         // Have client leave socket room
-        socket.leave(roomname);
-        const currentRoom = rooms.get(roomname)!;
+        socket.leave(roomId);
+        const currentRoom = rooms.get(roomId)!;
         let index = -1;
         // Delete the player from the room, and return the index of where they were in the room. 
         if(currentRoom.host === player) {
@@ -140,25 +146,33 @@ gameChoices.forEach(game => {
         else {
           index = currentRoom.removePlayer(player);
         }
-        server.of(game).to(roomname).emit('playerLeft', index);
+        server.of(game).to(roomId).emit('playerLeft', index);
         // @TODO - users should be able to browse rooms without having to leave their room?
         
       }
 
       // Otherwise just iterate through all the rooms this namespace has. 
       // @TODO - Add checks for max occupancy.
-      // Gonna do some additional cleaning here. 
       const candidateRooms = nameSpaceToRooms.get(game)!;
-      const availableRooms: Array<ConciseRoomInfo> = candidateRooms.map(room => room.getConciseRoomInfo());
+      const availableRooms: Array<ConciseRoomInfo> = [];
+      candidateRooms.forEach(room => {
+        if (!room.isPrivate) {
+          availableRooms.push(room.getConciseRoomInfo());
+        }
+      });
       socket.emit('availableRooms', availableRooms);
     });
 
     socket.on('joinRoom', function(data: RoomData) {
       // The user is trying to join a room.
-      const {targetRoom, userId} = data;
+      const {targetRoom, userId, submittedId} = data;
       const room = rooms.get(targetRoom);
       // If room exists
       if (room) {
+        
+        if (room.isPrivate && !submittedId) {
+          socket.emit('needId');
+        }
         // Get player and add them to room;
         const player = userIdToPlayer.get(userId)!;
         room.addPlayer(player);
@@ -176,11 +190,14 @@ gameChoices.forEach(game => {
     });
 
     socket.on('startGame', function(userId: string) {
+      // Get player from their id.
       const player = userIdToPlayer.get(userId)!;
-      const roomname = player.roomname;
-      const room = (rooms.get(roomname)!);
-      const gameState = (<SpyfallRoom> room).begin();
-      server.of(game).to(roomname).emit('gameStarted', gameState);
+      // Get the room they are in.
+      const roomId = player.roomId;
+      const room = (rooms.get(roomId)!);
+      // Start the game and return game information.
+      const gameState = room.begin();
+      server.of(game).to(roomId).emit('gameStarted', gameState);
     });
 
     // when socket disconnects, remove it from the list:
@@ -200,10 +217,10 @@ gameChoices.forEach(game => {
       const userId = socketToUserId.get(socket.id)!;
       // Get player from their userId
       const player = userIdToPlayer.get(userId)!;
-      const roomname = player.roomname;
-      if (roomname) {
-        socket.leave(roomname);
-        const room = rooms.get(roomname)!;
+      const roomId = player.roomId;
+      if (roomId) {
+        socket.leave(roomId);
+        const room = rooms.get(roomId)!;
         let index = -1;
         if (player == room.host) {
           deleteHost(room, game);
@@ -211,7 +228,7 @@ gameChoices.forEach(game => {
         else {
           index = room.removePlayer(player);
         }
-        server.of(game).to(roomname).emit('playerLeft', index);
+        server.of(game).to(roomId).emit('playerLeft', index);
       }
       player.disconnectPlayer();
     });

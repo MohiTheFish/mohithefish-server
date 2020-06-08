@@ -43,8 +43,8 @@ export default class SpyfallRoom extends Room {
   timeRemaining: number = 0;
   spyIndex: number = 0;
 
-  constructor(roomname: string, host: Player) {
-    super(roomname, host);
+  constructor(roomId: string, host: Player) {
+    super(roomId, host);
     this.timeRemaining = TIME_LIMIT;
   }
 

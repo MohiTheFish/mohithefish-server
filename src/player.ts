@@ -6,22 +6,22 @@ export default class Player {
   gamename: string;
   userId: string;
   disconnectTime: number;
-  roomname: string;
+  roomId: string;
 
   constructor(data: PlayerData) {
     this.username = data.username;
     this.gamename = data.gamename;
     this.userId = data.userId;
     this.disconnectTime = -1;
-    this.roomname = "";
+    this.roomId = "";
   }
 
   disconnectPlayer() {
     this.disconnectTime = Date.now();
   }
 
-  joinRoom(roomname: string) {
-    this.roomname = roomname;
+  joinRoom(roomId: string) {
+    this.roomId = roomId;
   }
 
   connectPlayer() {

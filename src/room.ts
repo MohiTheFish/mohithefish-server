@@ -3,42 +3,49 @@ import Player from './player';
 export type ConciseRoomInfo = {
   hostname: string,
   numPlayers: number,
-  roomname: string,
+  roomId: string,
+  isPrivate: boolean,
 };
 
 export default class Room {
   host: Player;
-  roomname: string;
+  roomId: string;
   members: Array<Player>;
   currentlyInGame: boolean = false;
+  isPrivate: boolean = false;
 
-  constructor(roomname: string, host: Player) {
-    this.roomname = roomname;
+  constructor(roomId: string, host: Player) {
+    this.roomId = roomId;
     this.host = host;
-    host.roomname = roomname;
+    host.roomId = roomId;
     this.members = [];
   }
 
-  getRoomInfo() : any{
+  getRoomInfo() : any {
     let memberNames = this.members.map(m => m.username);
     return {
       hostname: this.host.username,
       members: memberNames,
-      roomname: this.roomname,
+      roomId: this.roomId,
     };
+  }
+
+  togglePrivate() : void {
+    this.isPrivate = !this.isPrivate;
   }
 
   getConciseRoomInfo() : ConciseRoomInfo {
     return {
       hostname: this.host.username,
       numPlayers: this.members.length,
-      roomname: this.roomname,
+      roomId: this.roomId,
+      isPrivate: this.isPrivate,
     };
   }
 
   addPlayer(player: Player) : void {
     this.members.push(player);
-    player.roomname = this.roomname;
+    player.roomId = this.roomId;
   }
 
   removePlayer(player: Player) : number {
@@ -46,7 +53,7 @@ export default class Room {
     if (index > -1) {
       this.members.splice(index, 1);
     }
-    player.roomname = "";
+    player.roomId = "";
     return index;
   }
 
@@ -54,7 +61,7 @@ export default class Room {
     if (this.members.length === 0) {
       return true;
     }
-    this.host.roomname = "";
+    this.host.roomId = "";
     this.host = this.members[0];
     this.members.shift();
     return false;
