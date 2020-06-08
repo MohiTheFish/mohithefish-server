@@ -124,7 +124,9 @@ gameChoices.forEach(game => {
 
     socket.on('togglePrivateRoom', function(userId: string) {
       const player = userIdToPlayer.get(userId)!; 
-      const room = player.roomId; 
+      const room = rooms.get(player.roomId)!; 
+      const newPrivate = room.togglePrivate();
+      socket.emit('toggledPrivate', newPrivate);
     });
 
 

@@ -30,8 +30,9 @@ export default class Room {
     };
   }
 
-  togglePrivate() : void {
+  togglePrivate() : boolean {
     this.isPrivate = !this.isPrivate;
+    return this.isPrivate;
   }
 
   getConciseRoomInfo() : ConciseRoomInfo {
