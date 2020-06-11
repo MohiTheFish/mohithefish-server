@@ -153,7 +153,6 @@ gameChoices.forEach(game => {
         }
         server.of(game).to(roomId).emit('playerLeft', index);
         // @TODO - users should be able to browse rooms without having to leave their room?
-        
       }
 
       // Otherwise just iterate through all the rooms this namespace has. 
