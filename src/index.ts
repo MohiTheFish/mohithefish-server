@@ -49,6 +49,7 @@ function deleteRoomFromNamespace(game: string, roomToDelete: Room) {
   for(let i=0; i<rooms.length; i++){
     const room = rooms[i];
     if (room === roomToDelete) {
+      room.end();
       rooms.splice(i, 1);
       break;
     }
@@ -200,7 +201,7 @@ gameChoices.forEach(game => {
       const roomId = player.roomId;
       const room = (rooms.get(roomId)!);
       // Start the game and return game information.
-      const gameState = room.begin();
+      const gameState = room.begin(server);
       server.of(game).to(roomId).emit('gameStarted', gameState);
     });
 

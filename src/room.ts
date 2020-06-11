@@ -1,3 +1,4 @@
+import io from 'socket.io';
 import Player from './player';
 
 export type ConciseRoomInfo = {
@@ -68,7 +69,7 @@ export default class Room {
     return false;
   }
 
-  begin() {
+  begin(server?: io.Server) {
     this.currentlyInGame = true;
   }
 
