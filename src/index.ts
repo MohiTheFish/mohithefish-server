@@ -88,14 +88,6 @@ gameChoices.forEach(game => {
 
       // Get player from their userId;
       const player = userIdToPlayer.get(userId)!;
-      // If player is already in a room
-      if (player.roomId) {
-        const roomId = player.roomId;
-        // Remove them from that room
-        socket.leave(roomId);
-        const index = rooms.get(roomId)!.removePlayer(player);
-        server.of(game).to(roomId).emit('playerLeft', index);
-      }
 
       // Create a new room id.
       const newroomId = uuid();
@@ -132,7 +124,21 @@ gameChoices.forEach(game => {
       socket.emit('toggledPrivate', newPrivate);
     });
 
-
+    socket.on('nowCreatingRoom', function(userId: string) {
+      // Here is where we COULD pass settings to the user.
+      // As of now I'm having the user send in the settings, 
+      // Since I haven't create enough generic components in the 
+      const player = userIdToPlayer.get(userId)!;
+      const roomId = player.roomId;
+      // If player is already in a room
+      if (roomId) {
+        // Remove them from that room
+        socket.leave(roomId);
+        const index = rooms.get(roomId)!.removePlayer(player);
+        server.of(game).to(roomId).emit('playerLeft', index);
+      }
+      
+    })
     socket.on('getAvailableRooms', function(userId:string) {
       // Get player from their userId
       const player = userIdToPlayer.get(userId)!;
