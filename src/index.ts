@@ -136,9 +136,9 @@ gameChoices.forEach(game => {
         socket.leave(roomId);
         const index = rooms.get(roomId)!.removePlayer(player);
         server.of(game).to(roomId).emit('playerLeft', index);
-      }
-      
-    })
+      }  
+    });
+
     socket.on('getAvailableRooms', function(userId:string) {
       // Get player from their userId
       const player = userIdToPlayer.get(userId)!;

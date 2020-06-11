@@ -3,7 +3,7 @@ import Player from '../player';
 
 import io from 'socket.io';
 
-const TIME_PADDING = 2;
+const TIME_PADDING = 1;
 
 function getRandomInt(max: number) : number {
   return Math.floor(Math.random() * Math.floor(max));
@@ -78,7 +78,7 @@ export default class SpyfallRoom extends Room {
     // Interval calls.
     server.of('/spyfall').to(this.roomId).emit('timeUpdate', this.timeRemaining);
     this.timeRemaining -= 1;
-    if(this.timeRemaining === 0) {
+    if(this.timeRemaining === -1) {
       this.end();
     }
   }
