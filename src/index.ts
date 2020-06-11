@@ -82,7 +82,9 @@ gameChoices.forEach(game => {
       }
     });
 
-    socket.on('createRoom', function(userId:string) {
+    socket.on('createRoom', function(args: any[]) {
+      const [userId, settings] = args;
+
       // Get player from their userId;
       const player = userIdToPlayer.get(userId)!;
       // If player is already in a room
@@ -104,7 +106,7 @@ gameChoices.forEach(game => {
       let newRoom: any;
       switch(game) {
         case gameChoices[0]:{
-          newRoom = new SpyfallRoom(newroomId, player);
+          newRoom = new SpyfallRoom(newroomId, player, settings);
           break;
         }
         default: {

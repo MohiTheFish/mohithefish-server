@@ -43,9 +43,12 @@ export default class SpyfallRoom extends Room {
   timeRemaining: number = 0;
   spyIndex: number = 0;
 
-  constructor(roomId: string, host: Player) {
+  constructor(roomId: string, host: Player, settings: any) {
     super(roomId, host);
-    this.timeRemaining = TIME_LIMIT;
+    const { isPrivate, spyfall: {time}} = settings;
+    this.timeRemaining = time * 60;
+    this.isPrivate = isPrivate;
+
   }
 
   begin() : any {
