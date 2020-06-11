@@ -4,7 +4,6 @@ import Player from '../player';
 import io from 'socket.io';
 
 const TIME_PADDING = 2;
-const TIME_LIMIT = 60 * 8 + TIME_PADDING;
 
 function getRandomInt(max: number) : number {
   return Math.floor(Math.random() * Math.floor(max));

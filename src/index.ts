@@ -240,10 +240,3 @@ gameChoices.forEach(game => {
 
   });
 })
-
-server.of('/spyfall').on("connection", (socket: Socket) => {
-  socket.on('hello world', function(data: any) {
-    socket.emit('print', 'welcome');
-  })
-})
-
