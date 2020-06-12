@@ -3,7 +3,7 @@ import Player from '../player';
 
 import io from 'socket.io';
 
-const TIME_PADDING = 1;
+const TIME_PADDING = 0;
 
 function getRandomInt(max: number) : number {
   return Math.floor(Math.random() * Math.floor(max));
@@ -41,6 +41,7 @@ const locations = [
 ];
 
 export default class SpyfallRoom extends Room {
+  maxTime: number = -1;
   timeRemaining: number = 0;
   spyIndex: number = 0;
   roomInterval: any;
@@ -48,7 +49,7 @@ export default class SpyfallRoom extends Room {
   constructor(roomId: string, host: Player, settings: any) {
     super(roomId, host);
     const { isPrivate, spyfall: {time}} = settings;
-    this.timeRemaining = parseInt(time) * 60 + TIME_PADDING;
+    this.maxTime = parseInt(time) * 60 + TIME_PADDING;
     this.isPrivate = isPrivate;
   }
 
@@ -56,6 +57,10 @@ export default class SpyfallRoom extends Room {
     super.begin();
     // Randomly pick a spy
     this.spyIndex = getRandomInt(this.members.length+1) - 1;
+    this.timeRemaining = this.maxTime;
+    if (this.roomInterval) {
+      clearInterval(this.roomInterval);
+    }
     // Create a repeating interval. This server will synchronize the clocks for all clients.
     this.roomInterval = setInterval(() => {this.sendTime(server)}, 1000);
     return {
