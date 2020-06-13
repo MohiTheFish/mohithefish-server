@@ -210,6 +210,15 @@ gameChoices.forEach(game => {
       server.of(game).to(roomId).emit('gameStarted', gameState);
     });
 
+    socket.on('returnToLobby', function(userId: string) {
+      const player = userIdToPlayer.get(userId)!;
+      const roomId = player.roomId;
+      const room = (rooms.get(roomId)!);
+      room.end();
+
+      server.of(game).to(roomId).emit('sentBackToLobby');
+    });
+
     // when socket disconnects, remove it from the list:
     // also keep a time stamp since last login for player
     socket.on("forceDisconnect", function(){
