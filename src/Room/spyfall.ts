@@ -41,7 +41,7 @@ const locations = [
 ];
 
 export default class SpyfallRoom extends Room {
-  maxTime: number = -1;
+  maxTime: string;
   timeRemaining: number = 0;
   spyIndex: number = 0;
   roomInterval: any;
@@ -49,15 +49,40 @@ export default class SpyfallRoom extends Room {
   constructor(roomId: string, host: Player, settings: any) {
     super(roomId, host);
     const { isPrivate, spyfall: {time}} = settings;
-    this.maxTime = parseInt(time) * 60 + TIME_PADDING;
+    this.maxTime = time;
     this.isPrivate = isPrivate;
+  }
+
+  updateSettings(settings: any) : any {
+    const { spyfall: {time}} = settings;
+    this.maxTime = time;
+
+    return {
+      isPrivate: this.isPrivate,
+      spyfall: {
+        time: time,
+      }
+    };
+  }
+
+  getSettings() : any {
+    const roomInfo = super.getRoomInfo();
+    roomInfo.settings = {
+      isPrivate: this.isPrivate,
+      spyfall: {
+        time: this.maxTime,
+      }
+    }
+    return roomInfo;
   }
 
   begin(server: io.Server) : any {
     super.begin();
     // Randomly pick a spy
     this.spyIndex = getRandomInt(this.members.length+1) - 1;
-    this.timeRemaining = this.maxTime;
+
+    // Convert maxtime to seconds
+    this.timeRemaining = parseInt(this.maxTime) * 60 + TIME_PADDING;
     if (this.roomInterval) {
       clearInterval(this.roomInterval);
     }

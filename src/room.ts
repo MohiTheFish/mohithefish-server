@@ -22,6 +22,12 @@ export default class Room {
     this.members = [];
   }
 
+  updateSettings(settings:any) {
+    // Set is private eventually
+  }
+  getSettings() : any {
+    // prototyping for subclasses to use
+  }
   getRoomInfo() : any {
     let memberNames = this.members.map(m => m.username);
     return {

@@ -117,6 +117,21 @@ gameChoices.forEach(game => {
       socket.emit('createdRoom', newRoom.getRoomInfo());
     });
 
+    socket.on('updateSettings', function(args: any[]){
+      const [userId, settings] = args;
+      // Get player from their userId;
+      const player = userIdToPlayer.get(userId)!; 
+
+      // Get room player is in.
+      const room = rooms.get(player.roomId)!; 
+
+      // Update room settings
+      const newSettings = room.updateSettings(settings);
+
+      // Inform players
+      server.of(game).to(player.roomId).emit('settingsUpdated', newSettings)
+    });
+
     socket.on('togglePrivateRoom', function(userId: string) {
       const player = userIdToPlayer.get(userId)!; 
       const room = rooms.get(player.roomId)!; 
@@ -125,7 +140,7 @@ gameChoices.forEach(game => {
     });
 
     socket.on('nowCreatingRoom', function(userId: string) {
-      // Here is where we COULD pass settings to the user.
+      // Here is where we COULD pass settings options to the user.
       // As of now I'm having the user send in the settings, 
       // Since I haven't create enough generic components in the 
       const player = userIdToPlayer.get(userId)!;
@@ -191,8 +206,10 @@ gameChoices.forEach(game => {
         const roomInfo = room.getRoomInfo();
         server.of(game).to(targetRoom).emit('othersJoined', roomInfo);
         socket.join(targetRoom);
+
+        const roomSettings = room.getSettings();
         // Inform original client that they have now joined.
-        socket.emit('youJoined', roomInfo);
+        socket.emit('youJoined', roomSettings);
       }
       else {
         socket.emit('invalidRoom', `${targetRoom} was not found.`);
