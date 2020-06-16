@@ -7,6 +7,7 @@ import SpyfallRoom from './Room/spyfall';
 
 var allowedOrigins = "http://mohithefish.github.io/:* http://mohithefish.github.io:*";
 const server = io.listen((process.env.PORT || 5000), {
+  // origins: "*:*"
   origins: allowedOrigins
 });
 //http:localhost:5000/:game/:roomId
