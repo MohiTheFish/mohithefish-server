@@ -64,6 +64,28 @@ function deleteHost(room: Room, game:string) {
   }
 }
 
+function ejectPlayer(socket: io.Socket, game: string, server: io.Server) : Player {
+  const userId = socketToUserId.get(socket.id)!;
+  const player = userIdToPlayer.get(userId)!;
+  const roomId = player.roomId;
+  // If player is already in a room
+  if (roomId) {
+    // Remove them from that room
+    socket.leave(roomId);
+    const currentRoom = rooms.get(roomId)!;
+    let index = -1;
+    // Delete the player from the room, and return the index of where they were in the room. 
+    if(currentRoom.host === player) {
+      deleteHost(currentRoom, game);
+    }
+    else {
+      index = currentRoom.removePlayer(player);
+    }
+    server.of(game).to(roomId).emit('playerLeft', index);
+  }
+  return player;
+}
+
 // event fired every time a new client connects:
 gameChoices.forEach(game => {
   server.of(game).on("connection", (socket: Socket) => {
@@ -139,42 +161,13 @@ gameChoices.forEach(game => {
       socket.emit('toggledPrivate', newPrivate);
     });
 
-    socket.on('nowCreatingRoom', function(userId: string) {
-      // Here is where we COULD pass settings options to the user.
-      // As of now I'm having the user send in the settings, 
-      // Since I haven't create enough generic components in the 
-      const player = userIdToPlayer.get(userId)!;
-      const roomId = player.roomId;
-      // If player is already in a room
-      if (roomId) {
-        // Remove them from that room
-        socket.leave(roomId);
-        const index = rooms.get(roomId)!.removePlayer(player);
-        server.of(game).to(roomId).emit('playerLeft', index);
-      }  
+    socket.on('ejectPlayerFromRoom', function(userId: string) {
+      ejectPlayer(socket, game, server);
     });
 
     socket.on('getAvailableRooms', function(userId:string) {
       // Get player from their userId
-      const player = userIdToPlayer.get(userId)!;
-      // If user is ALREADY in a room (meaning they are deciding to switch to new room) remove them
-      if (player.roomId) {
-        const roomId = player.roomId;
-
-        // Have client leave socket room
-        socket.leave(roomId);
-        const currentRoom = rooms.get(roomId)!;
-        let index = -1;
-        // Delete the player from the room, and return the index of where they were in the room. 
-        if(currentRoom.host === player) {
-          deleteHost(currentRoom, game);
-        }
-        else {
-          index = currentRoom.removePlayer(player);
-        }
-        server.of(game).to(roomId).emit('playerLeft', index);
-        // @TODO - users should be able to browse rooms without having to leave their room?
-      }
+      ejectPlayer(socket, game, server);
 
       // Otherwise just iterate through all the rooms this namespace has. 
       // @TODO - Add checks for max occupancy.
@@ -248,24 +241,8 @@ gameChoices.forEach(game => {
     });
 
     socket.on("disconnect", () => {
-
-      // This event does should not rely on access to user data. Rely on our socket ids.
-      const userId = socketToUserId.get(socket.id)!;
-      // Get player from their userId
-      const player = userIdToPlayer.get(userId)!;
-      const roomId = player.roomId;
-      if (roomId) {
-        socket.leave(roomId);
-        const room = rooms.get(roomId)!;
-        let index = -1;
-        if (player == room.host) {
-          deleteHost(room, game);
-        }
-        else {
-          index = room.removePlayer(player);
-        }
-        server.of(game).to(roomId).emit('playerLeft', index);
-      }
+      // Remove player if they are in a room
+      const player = ejectPlayer(socket, game, server);
       player.disconnectPlayer();
     });
 
