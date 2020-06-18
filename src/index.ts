@@ -7,8 +7,8 @@ import SpyfallRoom from './Room/spyfall';
 
 var allowedOrigins = "http://mohithefish.github.io/:* http://mohithefish.github.io:*";
 const server = io.listen((process.env.PORT || 5000), {
-  origins: "*:*"
-  // origins: allowedOrigins
+  // origins: "*:*"
+  origins: allowedOrigins
 });
 
 //http:localhost:5000/:game/:roomId
@@ -139,6 +139,15 @@ gameChoices.forEach(game => {
 
       // Return room info.
       socket.emit('createdRoom', newRoom.getRoomInfo());
+    });
+
+    socket.on('updateMyName', function([userId, name]){
+      const player = userIdToPlayer.get(userId)!;
+      player.username = name;
+
+      // @TODO The server should notify the client that their name has been updated.
+      // Currently the client assumes that it has been updated by the time they need to use it.
+      // socket.emit()
     });
 
     socket.on('updateSettings', function(args: any[]){
