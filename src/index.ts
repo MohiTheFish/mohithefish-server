@@ -199,9 +199,10 @@ gameChoices.forEach(game => {
       // If room exists
       if (room) {
         
-        if (room.isPrivate && !submittedId) {
-          socket.emit('needId');
-        }
+        // @TODO Let players be able to join a room via id after it has already been created. */
+        // if (room.isPrivate && !submittedId) {
+        //   socket.emit('needId');
+        // }
         // Get player and add them to room;
         const player = userIdToPlayer.get(userId)!;
         room.addPlayer(player);
