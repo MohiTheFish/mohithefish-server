@@ -16,22 +16,22 @@ const locations = [
   'Cathedral',
   'Circus Tent',
   'Corporate Party',
+  'Cruise Ship',
   'Crusader Army',
   'Casino',
   'Day Spa',
   'Embassy',
+  'Gas Station',
   'Hospital',
   'Hotel',
   'Military Base',
   'Movie Studio',
-  'Ocean Liner',
   'Passenger Train',
   'Pirate Ship',
   'Polar Station',
   'Police Station',
   'Restaurant',
   'School',
-  'Service Station',
   'Space Station',
   'Submarine',
   'Supermarket',
@@ -40,27 +40,75 @@ const locations = [
   'World War II Squad'
 ];
 
+const foods = [
+  'Sushi',
+  'Burrito', 
+  'Doritos',
+  'Lays',
+  'Pizza',
+  'Hamburger',
+  'Omelette',
+  'Garlic Bread',
+  'Salad',
+  'Cookie',
+  'Brownie',
+  'Pie',
+  'Fried Rice',
+  'Lentils',
+  'Eggplant',
+  'Orange',
+  'Black Beans',
+  'Cereal',
+  'Mac & Cheese',
+  'Taco Bell',
+  'Cabbage',
+  "Ethan's Dog",
+  'Chicken',
+  'French Fries',
+  'Cake',
+  'Unbelievable Meat',
+  'Insects',
+  'Donuts'
+]
+
+function getList(gameType: string) : string[] {
+  switch(gameType) {
+    case 'Foods' : {
+      return foods;
+    }
+    default: {
+      return locations;
+    }
+  }
+}
+
+
 export default class SpyfallRoom extends Room {
   maxTime: string;
   timeRemaining: number = 0;
   spyIndex: number = 0;
   roomInterval: any;
+  gameType: string = "";
 
   constructor(roomId: string, host: Player, settings: any) {
     super(roomId, host);
-    const { isPrivate, spyfall: {time}} = settings;
+    
+    const { isPrivate, spyfall: {time, gameType}} = settings;
     this.maxTime = time;
+    this.gameType = gameType;
     this.isPrivate = isPrivate;
   }
 
   updateSettings(settings: any) : any {
-    const { spyfall: {time}} = settings;
+    const { spyfall: {time, gameType} } = settings;
     this.maxTime = time;
+    this.gameType = gameType;
 
     return {
       isPrivate: this.isPrivate,
       spyfall: {
         time: time,
+        gameType: gameType,
       }
     };
   }
@@ -71,6 +119,7 @@ export default class SpyfallRoom extends Room {
       isPrivate: this.isPrivate,
       spyfall: {
         time: this.maxTime,
+        gameType: this.gameType,
       }
     }
     return roomInfo;
@@ -88,11 +137,14 @@ export default class SpyfallRoom extends Room {
     }
     // Create a repeating interval. This server will synchronize the clocks for all clients.
     this.roomInterval = setInterval(() => {this.sendTime(server)}, 1000);
+    
+    const list = getList(this.gameType);
+    const secretItem = list[getRandomInt(list.length)];
     return {
       spyIndex: this.spyIndex,
       time: this.timeRemaining,
-      locations: locations,
-      secretLocation: locations[getRandomInt(locations.length)],
+      locations: getList(this.gameType),
+      secretLocation: secretItem,
     };
   }
 
