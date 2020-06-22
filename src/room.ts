@@ -9,7 +9,6 @@ export type ConciseRoomInfo = {
 };
 
 export default class Room {
-  host: Player;
   roomId: string;
   members: Array<Player>;
   currentlyInGame: boolean = false;
@@ -17,9 +16,8 @@ export default class Room {
 
   constructor(roomId: string, host: Player) {
     this.roomId = roomId;
-    this.host = host;
     host.roomId = roomId;
-    this.members = [];
+    this.members = [host];
   }
 
   updateSettings(settings:any) {
@@ -31,7 +29,6 @@ export default class Room {
   getRoomInfo() : any {
     let memberNames = this.members.map(m => m.username);
     return {
-      hostname: this.host.username,
       members: memberNames,
       roomId: this.roomId,
     };
@@ -44,7 +41,7 @@ export default class Room {
 
   getConciseRoomInfo() : ConciseRoomInfo {
     return {
-      hostname: this.host.username,
+      hostname: this.members[0].username,
       numPlayers: this.members.length,
       roomId: this.roomId,
       isPrivate: this.isPrivate,
@@ -65,12 +62,16 @@ export default class Room {
     return index;
   }
 
+  get host() {
+    return this.members[0];
+  }
+
   removeHost() : boolean {
-    if (this.members.length === 0) {
+    if (this.members.length === 1) {
       return true;
     }
-    this.host.roomId = "";
-    this.host = this.members[0];
+    const host = this.members[0];
+    host.roomId = "";
     this.members.shift();
     return false;
   }

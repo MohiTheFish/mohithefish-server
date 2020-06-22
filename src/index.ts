@@ -13,7 +13,7 @@ const server = io.listen((process.env.PORT || 5000), {
 
 //http:localhost:5000/:game/:roomId
 
-const gameChoices = ['/spyfall', '/tictactoe', '/war'];
+const gameChoices = ['/spyfall', '/mafia', '/war'];
 const gameMD = new Map();
 
 gameChoices.forEach(game => {
@@ -75,7 +75,7 @@ function ejectPlayer(socket: io.Socket, game: string, server: io.Server) : Playe
     // Remove them from that room
     socket.leave(roomId);
     const currentRoom = rooms.get(roomId)!;
-    let index = -1;
+    let index = 0;
     // Delete the player from the room, and return the index of where they were in the room. 
     if(currentRoom.host === player) {
       deleteHost(currentRoom, game);
@@ -122,7 +122,7 @@ gameChoices.forEach(game => {
       // Create the new room
       let newRoom: any;
       switch(game) {
-        case gameChoices[0]:{
+        case gameChoices[0]: {
           newRoom = new SpyfallRoom(newroomId, player, settings);
           break;
         }

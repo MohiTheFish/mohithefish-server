@@ -24,6 +24,7 @@ type mafiaProfile = {
 
 /**
  * Randomly shuffles a given array
+ * 
  * Credit to: https://javascript.info/task/shuffle
  * @param array array to shuffle
  */
@@ -39,8 +40,11 @@ function shuffle(array: any[]) {
 
 /**
  * Function to interpret what phase and what number a phase is in
+ * 
  * Ex) phase = 0 refers to day 0
+ * 
  * Ex) phase = 1 refers to night 1
+ * 
  * Ex) phase = 4 refers to day 2
  * @param phase a number indicating the phase
  */
@@ -80,17 +84,20 @@ export default class MafiaRoom extends Room {
       mafia: {
         dayTimeLimit, 
         nightTimeLimit,
-        // canAbstainDay
+        defenseTimeLimit,
         numMafia,
         allowSK,
         allowJoker,
       }
     } = settings;
+
     this.isPrivate = isPrivate;
+    this.mafiaRoomId = uuid();
+
     this.dayTimeLimit = Number.parseInt(dayTimeLimit);
     this.nightTimeLimit = Number.parseInt(nightTimeLimit);
+    this.defenseTimeLimit = Number.parseInt(defenseTimeLimit);
     this.numMafia = Number.parseInt(numMafia);
-    this.mafiaRoomId = uuid();
     this.allowSK = allowSK;
     this.allowJoker = allowJoker;
   }
@@ -101,7 +108,6 @@ export default class MafiaRoom extends Room {
         dayTimeLimit, 
         nightTimeLimit,
         defenseTimeLimit,
-        // canAbstainDay
         numMafia,
         allowSK,
         allowJoker,
@@ -120,7 +126,7 @@ export default class MafiaRoom extends Room {
       mafia: {
         dayTimeLimit, 
         nightTimeLimit,
-        // canAbstainDay
+        defenseTimeLimit,
         numMafia,
         allowSK,
         allowJoker,
@@ -135,7 +141,7 @@ export default class MafiaRoom extends Room {
       mafia: {
         dayTimeLimit: this.dayTimeLimit, 
         nightTimeLimit: this.nightTimeLimit,
-        // canAbstainDay
+        defenseTimeLImit: this.defenseTimeLimit,
         numMafia: this.numMafia,
         allowSK: this.allowSK,
         allowJoker: this.allowJoker,
@@ -144,6 +150,19 @@ export default class MafiaRoom extends Room {
     return roomInfo;
   }
 
+  getGameState(myIndex: number) : any{
+    const profileInfo: any[] = [];
+    profileInfo.length = this.memberProfiles.length;
+    this.memberProfiles.forEach((profile,index) => {
+      profileInfo[index] = {
+        isAlive: profile.isAlive,
+      }
+    })
+
+    return {
+      profileInfo,
+    }
+  }
   begin(server: io.Server) : any {
     super.begin();
 
@@ -192,6 +211,7 @@ export default class MafiaRoom extends Room {
     this.mainTimeRemaining = 5; // Phase 0 will have 5 seconds.
     // Create a repeating interval. This server will synchronize the clocks for all clients.
     this.mainInterval = setInterval(() => {this.sendTime(server)}, 1000);
+
     
     
   }
@@ -226,7 +246,7 @@ export default class MafiaRoom extends Room {
       clearInterval(this.secondaryInterval);
     }
   }
-  
+
   sendTime(server: io.Server) {
     // Interval calls.
     server.of('/mafia').to(this.roomId).emit('timeUpdate', this.mainTimeRemaining);

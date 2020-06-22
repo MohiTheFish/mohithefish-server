@@ -128,7 +128,7 @@ export default class SpyfallRoom extends Room {
   begin(server: io.Server) : any {
     super.begin();
     // Randomly pick a spy
-    this.spyIndex = getRandomInt(this.members.length+1) - 1;
+    this.spyIndex = getRandomInt(this.members.length);
 
     // Convert maxtime to seconds
     this.timeRemaining = parseInt(this.maxTime) * 60 + TIME_PADDING;
