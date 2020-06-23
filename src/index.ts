@@ -182,6 +182,7 @@ gameChoices.forEach(game => {
 
       // Otherwise just iterate through all the rooms this namespace has. 
       // @TODO - Add checks for max occupancy.
+      console.log(game);
       const candidateRooms = nameSpaceToRooms.get(game)!;
       const availableRooms: Array<ConciseRoomInfo> = [];
       candidateRooms.forEach(room => {
