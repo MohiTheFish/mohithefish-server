@@ -100,6 +100,7 @@ export default class MafiaRoom extends Room {
     this.numMafia = Number.parseInt(numMafia);
     this.allowSK = allowSK;
     this.allowJoker = allowJoker;
+    this.roomType = '/mafia';
   }
 
   updateSettings(settings: any) : any {

@@ -97,6 +97,7 @@ export default class SpyfallRoom extends Room {
     this.maxTime = time;
     this.gameType = gameType;
     this.isPrivate = isPrivate;
+    this.roomType = '/spyfall';
   }
 
   updateSettings(settings: any) : any {

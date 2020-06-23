@@ -10,6 +10,7 @@ export type ConciseRoomInfo = {
 
 export default class Room {
   roomId: string;
+  roomType: string = 'basic';
   members: Array<Player>;
   currentlyInGame: boolean = false;
   isPrivate: boolean = false;

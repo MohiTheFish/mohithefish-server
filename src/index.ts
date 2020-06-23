@@ -198,7 +198,7 @@ gameChoices.forEach(game => {
       const {targetRoom, userId, submittedId} = data;
       const room = rooms.get(targetRoom);
       // If room exists
-      if (room) {
+      if (room && room.roomType===game) {
         
         // @TODO Let players be able to join a room via id after it has already been created. */
         // if (room.isPrivate && !submittedId) {
