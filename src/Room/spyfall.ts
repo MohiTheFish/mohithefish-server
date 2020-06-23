@@ -71,10 +71,51 @@ const foods = [
   'Donuts'
 ]
 
+const animals = [
+  'Dog',
+  'Cat',
+  'Cow',
+  'Chicken',
+  'Wildcat',
+  'Pig',
+  'Turtle',
+  'Frog',
+  'Shark',
+  'Penguin',
+  'Polar Bear',
+  'Panda Bear',
+  'Whale',
+  'Rhino',
+  'Rabbit',
+  'Beaver',
+  'Wolf',
+  'Lion',
+  'Monkey',
+  'Dolphin',
+  'Kangaroo',
+  'Giraffe',
+  'Elephant',
+  'Kiril',
+  'Snake',
+  'Goose',
+  'Bee',
+  'Lizard',
+  'Leopard',
+  'Hawk',
+  'Eagle',
+  'Ostrich',
+  'Koala',
+  'Seal',
+  'Hippo', 
+  "Ryan's Brain"
+]
 function getList(gameType: string) : string[] {
   switch(gameType) {
     case 'Foods' : {
       return foods;
+    }
+    case 'Animals' : {
+      return animals;
     }
     default: {
       return locations;
@@ -128,7 +169,7 @@ export default class SpyfallRoom extends Room {
   begin(server: io.Server) : any {
     super.begin();
     // Randomly pick a spy
-    this.spyIndex = getRandomInt(this.members.length+1) - 1;
+    this.spyIndex = getRandomInt(this.members.length);
 
     // Convert maxtime to seconds
     this.timeRemaining = parseInt(this.maxTime) * 60 + TIME_PADDING;
