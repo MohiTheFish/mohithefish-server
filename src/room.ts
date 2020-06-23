@@ -10,15 +10,16 @@ export type ConciseRoomInfo = {
 
 export default class Room {
   roomId: string;
-  roomType: string = 'basic';
+  roomType: string;
   members: Array<Player>;
   currentlyInGame: boolean = false;
   isPrivate: boolean = false;
 
-  constructor(roomId: string, host: Player) {
+  constructor(roomId: string, host: Player, roomType: string) {
     this.roomId = roomId;
     host.roomId = roomId;
     this.members = [host];
+    this.roomType = roomType;
   }
 
   updateSettings(settings:any) {

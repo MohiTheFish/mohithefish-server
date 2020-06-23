@@ -77,7 +77,7 @@ export default class MafiaRoom extends Room {
   memberProfiles: Array<mafiaProfile> = [];
 
   constructor(roomId: string, host: Player, settings: any) {
-    super(roomId, host);
+    super(roomId, host, '/mafia');
     
     const { 
       isPrivate, 
@@ -100,7 +100,6 @@ export default class MafiaRoom extends Room {
     this.numMafia = Number.parseInt(numMafia);
     this.allowSK = allowSK;
     this.allowJoker = allowJoker;
-    this.roomType = '/mafia';
   }
 
   updateSettings(settings: any) : any {
@@ -240,7 +239,7 @@ export default class MafiaRoom extends Room {
 
   secondarySendTime(server: io.Server) {
     // Interval calls.
-    server.of('/mafia').to(this.roomId).emit('timeUpdate', this.secondaryTimeRemaining);
+    server.to(this.roomId).emit('timeUpdate', this.secondaryTimeRemaining);
     this.secondaryTimeRemaining -= 1;
     if(this.secondaryTimeRemaining === -1) {
 
@@ -250,7 +249,7 @@ export default class MafiaRoom extends Room {
 
   sendTime(server: io.Server) {
     // Interval calls.
-    server.of('/mafia').to(this.roomId).emit('timeUpdate', this.mainTimeRemaining);
+    server.to(this.roomId).emit('timeUpdate', this.mainTimeRemaining);
     this.mainTimeRemaining -= 1;
     if(this.mainTimeRemaining === -1) {
       this.phase += 1;

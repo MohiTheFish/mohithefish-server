@@ -91,7 +91,7 @@ export default class SpyfallRoom extends Room {
   gameType: string = "";
 
   constructor(roomId: string, host: Player, settings: any) {
-    super(roomId, host);
+    super(roomId, host, '/spyfall');
     
     const { isPrivate, spyfall: {time, gameType}} = settings;
     this.maxTime = time;
@@ -159,7 +159,7 @@ export default class SpyfallRoom extends Room {
 
   sendTime(server: io.Server) {
     // Interval calls.
-    server.of('/spyfall').to(this.roomId).emit('timeUpdate', this.timeRemaining);
+    server.to(this.roomId).emit('timeUpdate', this.timeRemaining);
     this.timeRemaining -= 1;
     if(this.timeRemaining === -1) {
       this.end();
