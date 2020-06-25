@@ -1,6 +1,8 @@
 import io from 'socket.io';
 import Player from './player';
 
+export const GAMESTARTED: string = 'gameStarted';
+
 export type ConciseRoomInfo = {
   hostname: string,
   numPlayers: number,

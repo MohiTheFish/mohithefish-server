@@ -1,13 +1,9 @@
-import Room from '../room';
-import Player from '../player';
+import Room, {GAMESTARTED} from '../room';
+import Player, {getRandomInt} from '../player';
 
 import io from 'socket.io';
 
 const TIME_PADDING = 0;
-
-function getRandomInt(max: number) : number {
-  return Math.floor(Math.random() * Math.floor(max));
-}
 
 const locations = [
   'Airplane',
@@ -91,13 +87,13 @@ export default class SpyfallRoom extends Room {
   gameType: string = "";
 
   constructor(roomId: string, host: Player, settings: any) {
-    super(roomId, host, '/spyfall');
+    super(roomId, host, 'spyfall');
+    console.log(settings);
     
     const { isPrivate, spyfall: {time, gameType}} = settings;
     this.maxTime = time;
     this.gameType = gameType;
     this.isPrivate = isPrivate;
-    this.roomType = '/spyfall';
   }
 
   updateSettings(settings: any) : any {
@@ -141,12 +137,13 @@ export default class SpyfallRoom extends Room {
     
     const list = getList(this.gameType);
     const secretItem = list[getRandomInt(list.length)];
-    return {
+    const gameState = {
       spyIndex: this.spyIndex,
       time: this.timeRemaining,
       locations: getList(this.gameType),
       secretLocation: secretItem,
     };
+    server.to(this.roomId).emit(GAMESTARTED, gameState);
   }
 
   end() {
@@ -159,7 +156,7 @@ export default class SpyfallRoom extends Room {
 
   sendTime(server: io.Server) {
     // Interval calls.
-    server.to(this.roomId).emit('timeUpdate', this.timeRemaining);
+    server.to(this.roomId).emit('mainTimeUpdate', this.timeRemaining);
     this.timeRemaining -= 1;
     if(this.timeRemaining === -1) {
       this.end();

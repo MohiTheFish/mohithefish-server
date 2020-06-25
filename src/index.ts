@@ -20,24 +20,16 @@ const rooms = new Map<string, Room>();
 const userIdToPlayer = new Map<string, Player>();
 const socketToUserId = new Map<string, string>();
 
-export type PlayerData = {
-  userId: string,
-  username: string,
-  gamename: string,
-  disconnectTime: number,
-};
-
+// When user requests to join a room
 export type RoomData = {
   userId: string;
-  game: string;
   targetRoom: string;
   submittedId: boolean;
 };
-
+// Initialize the map of game to rooms.
 gameChoices.forEach(game => {
   nameSpaceToRooms.set(game, []);
 });
-
 
 function deleteRoomFromNamespace(game: string, roomToDelete: Room) {
   const rooms: Array<Room> = nameSpaceToRooms.get(game)!;
@@ -59,8 +51,9 @@ function deleteHost(room: Room) {
   }
 }
 
-function ejectPlayer(socket: io.Socket, server: io.Server) : Player {
-  const userId = socketToUserId.get(socket.id)!;
+function ejectPlayer(socket: io.Socket, server: io.Server) : Player | undefined {
+  const userId = socketToUserId.get(socket.id);
+  if (!userId) {return;}
   const player = userIdToPlayer.get(userId)!;
   const roomId = player.roomId;
   // If player is already in a room
@@ -87,20 +80,28 @@ server.on("connection", (socket: Socket) => {
 
   // When user first connects, they send over some data about what game they are playing
   // They also provide their name.
-  socket.on('initialConnection', function (data: PlayerData) {
+  socket.on('initialConnection', function (userId: string) {
     // For disconnect, we want to be able to determine which player was the one that connected.
-    socketToUserId.set(socket.id, data.userId);
-    const player = userIdToPlayer.get(data.userId);
+    socketToUserId.set(socket.id, userId);
+    const player = userIdToPlayer.get(userId);
     if (player) {
-      player.connectPlayer();
+      player.connectPlayer(socket);
     }
     else {
-      userIdToPlayer.set(data.userId, new Player(data));
+      userIdToPlayer.set(userId, new Player(userId, socket));
     }
   });
 
+  
+  socket.on('updateMyName', function([userId, username]){
+    const player = userIdToPlayer.get(userId)!;
+    player.updateName(username);
+    socket.emit('nameUpdated', player.username);
+  });
+
   socket.on('createRoom', function(args: any[]) {
-    const [userId, gamename, settings] = args;
+    const [userId, game, settings] = args;
+    console.log(args);
 
     // Get player from their userId;
     const player = userIdToPlayer.get(userId)!;
@@ -113,7 +114,7 @@ server.on("connection", (socket: Socket) => {
 
     // Create the new room
     let newRoom: any;
-    switch(gamename) {
+    switch(game) {
       case gameChoices[0]: {
         newRoom = new SpyfallRoom(newroomId, player, settings);
         break;
@@ -131,22 +132,9 @@ server.on("connection", (socket: Socket) => {
     rooms.set(newroomId, newRoom);
 
     // Add it to list of rooms available for this game.
-    nameSpaceToRooms.get(gamename)!.push(newRoom);
+    nameSpaceToRooms.get(game)!.push(newRoom);
 
-    console.log('created room');
-    console.log(newRoom);
-    console.log(nameSpaceToRooms);
-    // Return room info.
     socket.emit('createdRoom', newRoom.getRoomInfo());
-  });
-
-  socket.on('updateMyName', function([userId, name]){
-    const player = userIdToPlayer.get(userId)!;
-    player.username = name;
-
-    // @TODO The server should notify the client that their name has been updated.
-    // Currently the client assumes that it has been updated by the time they need to use it.
-    // socket.emit()
   });
 
   socket.on('updateSettings', function(args: any[]){
@@ -171,17 +159,15 @@ server.on("connection", (socket: Socket) => {
     socket.emit('toggledPrivate', newPrivate);
   });
 
-  socket.on('ejectPlayerFromRoom', function(userId: string) {
+  socket.on('ejectPlayerFromRoom', function() {
     ejectPlayer(socket, server);
   });
 
-  socket.on('getAvailableRooms', function(args: any[]) {
-    const [userId, game] = args;
+  socket.on('getAvailableRooms', function(game: string) {
     // Get player from their userId
     ejectPlayer(socket, server);
 
     // Otherwise just iterate through all the rooms this namespace has. 
-    // @TODO - Add checks for max occupancy.
     const candidateRooms = nameSpaceToRooms.get(game)!;
     console.log(candidateRooms);
     const availableRooms: Array<ConciseRoomInfo> = [];
@@ -195,11 +181,11 @@ server.on("connection", (socket: Socket) => {
 
   socket.on('joinRoom', function(data: RoomData) {
     // The user is trying to join a room.
-    const {targetRoom, userId, game, submittedId} = data;
+    const {targetRoom, userId, submittedId} = data;
     const room = rooms.get(targetRoom);
     // If room exists
     
-    if (room && room.roomType===game) {
+    if (room) {
       
       // @TODO Let players be able to join a room via id after it has already been created. */
       // if (room.isPrivate && !submittedId) {
@@ -230,8 +216,9 @@ server.on("connection", (socket: Socket) => {
     const roomId = player.roomId;
     const room = (rooms.get(roomId)!);
     // Start the game and return game information.
-    const gameState = room.begin(server);
-    server.to(roomId).emit('gameStarted', gameState);
+    room.begin(server);
+    
+    // The players are notified inside of the begin function for their respective game.
   });
 
   socket.on('returnToLobby', function(userId: string) {
@@ -257,7 +244,9 @@ server.on("connection", (socket: Socket) => {
   socket.on("disconnect", () => {
     // Remove player if they are in a room
     const player = ejectPlayer(socket, server);
-    player.disconnectPlayer();
+    if (player){
+      player.disconnectPlayer();
+    }
   });
 
 });

@@ -1,4 +1,4 @@
-import Room from '../room';
+import Room, {GAMESTARTED} from '../room';
 import Player from '../player';
 
 import { v4 as uuid } from 'uuid';
@@ -77,7 +77,8 @@ export default class MafiaRoom extends Room {
   memberProfiles: Array<mafiaProfile> = [];
 
   constructor(roomId: string, host: Player, settings: any) {
-    super(roomId, host, '/mafia');
+    super(roomId, host, 'mafia');
+    console.log(settings);
     
     const { 
       isPrivate, 
@@ -141,7 +142,7 @@ export default class MafiaRoom extends Room {
       mafia: {
         dayTimeLimit: this.dayTimeLimit, 
         nightTimeLimit: this.nightTimeLimit,
-        defenseTimeLImit: this.defenseTimeLimit,
+        defenseTimeLimit: this.defenseTimeLimit,
         numMafia: this.numMafia,
         allowSK: this.allowSK,
         allowJoker: this.allowJoker,
@@ -166,9 +167,8 @@ export default class MafiaRoom extends Room {
   begin(server: io.Server) : any {
     super.begin();
 
-    const numPlayers = this.members.length+1;
-    this.memberProfiles = new Array(numPlayers);
-    const profiles = this.memberProfiles;
+    const numPlayers = this.members.length;
+    const profiles: mafiaProfile[] = [];
 
     const roles: ROLES[] = [];
     roles.length = numPlayers;
@@ -200,19 +200,36 @@ export default class MafiaRoom extends Room {
 
 
     // Intializes all the profiles
-    profiles.forEach((profile,index) => {
-      profile.role = roles[index];
-      profile.isAlive = true;
-      profile.isAbstaining = false;
-      profile.targetOfPower = "";
-      profile.votingFor = "";
+    roles.forEach(role => {
+      const profile = {
+        role: role,
+        isAlive: true,
+        isAbstaining: false,
+        targetOfPower: "",
+        votingFor: "",
+      }
+      profiles.push(profile);
     });
 
     this.mainTimeRemaining = 5; // Phase 0 will have 5 seconds.
+    const baseGameState = {
+      time: this.mainTimeRemaining,
+      role: ROLES.VILLAGER,
+    }
+
+    console.log(profiles);
+    this.members.forEach((member, index) => {
+      const socket = member.socket;
+      if (socket) {
+        baseGameState.role = profiles[index].role;
+        socket.emit(GAMESTARTED, baseGameState);
+      }
+    })
+    this.memberProfiles = profiles;
+
     // Create a repeating interval. This server will synchronize the clocks for all clients.
     this.mainInterval = setInterval(() => {this.sendTime(server)}, 1000);
 
-    
     
   }
 
@@ -239,7 +256,7 @@ export default class MafiaRoom extends Room {
 
   secondarySendTime(server: io.Server) {
     // Interval calls.
-    server.to(this.roomId).emit('timeUpdate', this.secondaryTimeRemaining);
+    server.to(this.roomId).emit('secondaryTimeUpdate', this.secondaryTimeRemaining);
     this.secondaryTimeRemaining -= 1;
     if(this.secondaryTimeRemaining === -1) {
 
@@ -249,7 +266,8 @@ export default class MafiaRoom extends Room {
 
   sendTime(server: io.Server) {
     // Interval calls.
-    server.to(this.roomId).emit('timeUpdate', this.mainTimeRemaining);
+    server.to(this.roomId).emit('mainTimeUpdate', this.mainTimeRemaining);
+    console.log(this.mainTimeRemaining);
     this.mainTimeRemaining -= 1;
     if(this.mainTimeRemaining === -1) {
       this.phase += 1;
