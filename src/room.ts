@@ -82,7 +82,7 @@ export default class Room {
     return false;
   }
 
-  begin(server?: io.Server) {
+  begin() {
     this.currentlyInGame = true;
   }
 

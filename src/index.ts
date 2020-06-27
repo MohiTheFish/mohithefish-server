@@ -101,7 +101,6 @@ server.on("connection", (socket: Socket) => {
 
   socket.on('createRoom', function(args: any[]) {
     const [userId, game, settings] = args;
-    console.log(args);
 
     // Get player from their userId;
     const player = userIdToPlayer.get(userId)!;
@@ -169,7 +168,7 @@ server.on("connection", (socket: Socket) => {
 
     // Otherwise just iterate through all the rooms this namespace has. 
     const candidateRooms = nameSpaceToRooms.get(game)!;
-    console.log(candidateRooms);
+    
     const availableRooms: Array<ConciseRoomInfo> = [];
     candidateRooms.forEach(room => {
       if (!room.isPrivate) {
@@ -186,11 +185,6 @@ server.on("connection", (socket: Socket) => {
     // If room exists
     
     if (room) {
-      
-      // @TODO Let players be able to join a room via id after it has already been created. */
-      // if (room.isPrivate && !submittedId) {
-      //   socket.emit('needId');
-      // }
       // Get player and add them to room;
       const player = userIdToPlayer.get(userId)!;
       room.addPlayer(player);
@@ -216,7 +210,7 @@ server.on("connection", (socket: Socket) => {
     const roomId = player.roomId;
     const room = (rooms.get(roomId)!);
     // Start the game and return game information.
-    room.begin(server);
+    room.begin();
     
     // The players are notified inside of the begin function for their respective game.
   });
@@ -250,12 +244,11 @@ server.on("connection", (socket: Socket) => {
   });
 
 
-  socket.on('sendMafiaMessage', function({userId, message}) {
+  socket.on('sendMafiaMessage', function({userId, index, message}) {
+    console.log(`the socket id: ${socket.id}`);
     const player = userIdToPlayer.get(userId)!;
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));
-    // room.updateChat(message);
-    
-
+    room.updateChat(index, userId, message);
   });
 
 });

@@ -29,7 +29,6 @@ export default class Player {
   }
 
   updateName(name: string) {
-    console.log('updating ' + this.userId);
     if(name) {
       this.username = name;
     }

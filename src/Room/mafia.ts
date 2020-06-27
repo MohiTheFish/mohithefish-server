@@ -15,6 +15,12 @@ enum ROLES {
   NUM_ROLES,
 };
 
+enum AUDIENCE {
+  NOBODY,
+  EVERYONE, 
+  MAFIA, 
+};
+
 type mafiaProfile = {
   role: ROLES,
   isAlive: boolean,
@@ -77,6 +83,20 @@ function interpretPhase(phase: number) : string {
     return `night ${num}`;
   }
 }
+
+function isDay(phase: number) {
+  return phase % 2 === 0;
+}
+
+function printExists(item: any, itemname: string) {
+  if (item) {
+    console.log(`${itemname} exists`);
+  }
+  else {
+    console.log(`${itemname} does not exist`);
+  }
+}
+
 export default class MafiaRoom extends Room {
   dayTimeLimit: number = 300;
   nightTimeLimit: number = 60;
@@ -91,7 +111,6 @@ export default class MafiaRoom extends Room {
   secondaryTimeRemaining: number = 0;
   secondaryInterval: any = null;
   mafiaRoomId: string;
-  roleCounts: object = {};
 
   memberProfiles: Array<mafiaProfile> = [];
 
@@ -116,8 +135,7 @@ export default class MafiaRoom extends Room {
 
   constructor(roomId: string, host: Player, server: io.Server, settings: any) {
     super(roomId, host, server, 'mafia');
-    console.log(settings);
-    
+    console.log('constructor');
     const { 
       isPrivate, 
       mafia,
@@ -130,6 +148,7 @@ export default class MafiaRoom extends Room {
   }
 
   updateSettings(settings: any) : any {
+    console.log('updateSettings');
     const { 
       mafia
     } = settings;
@@ -160,6 +179,7 @@ export default class MafiaRoom extends Room {
 
   begin() : any {
     super.begin();
+    console.log('begin');
 
     const numPlayers = this.members.length;
     const profiles: mafiaProfile[] = [];
@@ -194,13 +214,19 @@ export default class MafiaRoom extends Room {
 
 
     // Intializes all the profiles
-    roles.forEach(role => {
+    roles.forEach((role, index) => {
       const profile = {
         role: role,
         isAlive: true,
         isAbstaining: false,
         targetOfPower: "",
         votingFor: "",
+      }
+      if (role === ROLES.MAFIA) {
+        if ( index < this.members.length) {
+          const player = this.members[index];
+          player.socket?.join(this.mafiaRoomId);
+        }
       }
       profiles.push(profile);
     });
@@ -215,7 +241,6 @@ export default class MafiaRoom extends Room {
       }
     }
 
-    console.log(profiles);
     this.members.forEach((member, index) => {
       const socket = member.socket;
       if (socket) {
@@ -226,7 +251,7 @@ export default class MafiaRoom extends Room {
     this.memberProfiles = profiles;
 
     // Create a repeating interval. This server will synchronize the clocks for all clients.
-    this.mainInterval = setInterval(this.sendTime, 1000); 
+    this.mainInterval = setInterval(() => this.sendTime(), 1000); 
     
   }
 
@@ -242,15 +267,14 @@ export default class MafiaRoom extends Room {
     }
     this.phase = 0;
     this.memberProfiles = [];
-    this.roleCounts = {};
   }
 
-  pauseMainTime(server: io.Server) {
+  pauseMainTime() {
     if (this.mainInterval) {
       clearInterval(this.mainInterval);
       this.mainInterval = null;
 
-      this.secondaryInterval = setInterval(this.secondarySendTime, 1000);
+      this.secondaryInterval = setInterval(() => this.secondarySendTime(), 1000);
     }
   }
 
@@ -266,7 +290,6 @@ export default class MafiaRoom extends Room {
   sendTime() {
     // Interval calls.
     this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining]);
-    console.log(this.mainTimeRemaining);
     this.mainTimeRemaining -= 1;
     if(this.mainTimeRemaining === -1) {
       this.phase += 1;
@@ -275,6 +298,44 @@ export default class MafiaRoom extends Room {
       }
       else {
         this.mainTimeRemaining = this.dayTimeLimit;
+      }
+    }
+  }
+
+  updateChat(index: number, userId: string, message: string) {
+    const player = this.members[index];
+    const profile = this.memberProfiles[index];
+    if (player.userId !== userId) {
+      console.log('out of order!');
+    }
+    const tagMessage = `${player.username}: ${message}`;
+    const baseObj = {
+      audience: AUDIENCE.EVERYONE,
+      phase: this.phase,
+      message: tagMessage,
+    };
+
+    
+    // If it's day time, make message publicly available
+    if (isDay(this.phase)) {
+      this.server.to(this.roomId).emit('mafiaChatUpdated', baseObj);
+    }
+    else {
+      // Different scenarios for texting at night
+      if(profile.role === ROLES.MAFIA) {
+        console.log("MAFIA PLAYER");
+        // If player is a mafia, send to all mafias.
+        baseObj.audience = AUDIENCE.MAFIA;
+        this.server.to(this.mafiaRoomId).emit('mafiaChatUpdated', baseObj);
+      }
+      else {
+        // Otherwise just update the player's individual chat message. 
+        printExists(player.socket, 'playersocket');
+        if (player.socket) {
+          baseObj.audience = AUDIENCE.NOBODY;
+          console.log(`night socketId: ${player.socket.id}`);
+          this.server.to(player.socket.id).emit('mafiaChatUpdated', baseObj)
+        }
       }
     }
   }

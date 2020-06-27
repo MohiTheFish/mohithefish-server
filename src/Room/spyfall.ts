@@ -88,7 +88,6 @@ export default class SpyfallRoom extends Room {
 
   constructor(roomId: string, host: Player, server: io.Server, settings: any) {
     super(roomId, host, server, 'spyfall');
-    console.log(settings);
     
     const { isPrivate, spyfall: {time, gameType}} = settings;
     this.maxTime = time;
