@@ -135,7 +135,6 @@ export default class MafiaRoom extends Room {
 
   constructor(roomId: string, host: Player, server: io.Server, settings: any) {
     super(roomId, host, server, 'mafia');
-    console.log('constructor');
     const { 
       isPrivate, 
       mafia,
@@ -148,7 +147,6 @@ export default class MafiaRoom extends Room {
   }
 
   updateSettings(settings: any) : any {
-    console.log('updateSettings');
     const { 
       mafia
     } = settings;
@@ -179,7 +177,6 @@ export default class MafiaRoom extends Room {
 
   begin() : any {
     super.begin();
-    console.log('begin');
 
     const numPlayers = this.members.length;
     const profiles: mafiaProfile[] = [];
@@ -323,17 +320,14 @@ export default class MafiaRoom extends Room {
     else {
       // Different scenarios for texting at night
       if(profile.role === ROLES.MAFIA) {
-        console.log("MAFIA PLAYER");
         // If player is a mafia, send to all mafias.
         baseObj.audience = AUDIENCE.MAFIA;
         this.server.to(this.mafiaRoomId).emit('mafiaChatUpdated', baseObj);
       }
       else {
         // Otherwise just update the player's individual chat message. 
-        printExists(player.socket, 'playersocket');
         if (player.socket) {
           baseObj.audience = AUDIENCE.NOBODY;
-          console.log(`night socketId: ${player.socket.id}`);
           this.server.to(player.socket.id).emit('mafiaChatUpdated', baseObj)
         }
       }

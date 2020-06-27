@@ -245,7 +245,6 @@ server.on("connection", (socket: Socket) => {
 
 
   socket.on('sendMafiaMessage', function({userId, index, message}) {
-    console.log(`the socket id: ${socket.id}`);
     const player = userIdToPlayer.get(userId)!;
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));
     room.updateChat(index, userId, message);

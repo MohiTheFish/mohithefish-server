@@ -132,7 +132,7 @@ export default class SpyfallRoom extends Room {
       clearInterval(this.roomInterval);
     }
     // Create a repeating interval. This server will synchronize the clocks for all clients.
-    this.roomInterval = setInterval(this.sendTime, 1000);
+    this.roomInterval = setInterval(() => this.sendTime(), 1000);
     
     const list = getList(this.gameType);
     const secretItem = list[getRandomInt(list.length)];
