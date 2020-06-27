@@ -67,10 +67,51 @@ const foods = [
   'Donuts'
 ]
 
+const animals = [
+  'Dog',
+  'Cat',
+  'Cow',
+  'Chicken',
+  'Wildcat',
+  'Pig',
+  'Turtle',
+  'Frog',
+  'Shark',
+  'Penguin',
+  'Polar Bear',
+  'Panda Bear',
+  'Whale',
+  'Rhino',
+  'Rabbit',
+  'Beaver',
+  'Wolf',
+  'Lion',
+  'Monkey',
+  'Dolphin',
+  'Kangaroo',
+  'Giraffe',
+  'Elephant',
+  'Kiril',
+  'Snake',
+  'Goose',
+  'Bee',
+  'Lizard',
+  'Leopard',
+  'Hawk',
+  'Eagle',
+  'Ostrich',
+  'Koala',
+  'Seal',
+  'Hippo', 
+  "Ryan's Brain"
+]
 function getList(gameType: string) : string[] {
   switch(gameType) {
     case 'Foods' : {
       return foods;
+    }
+    case 'Animals' : {
+      return animals;
     }
     default: {
       return locations;
