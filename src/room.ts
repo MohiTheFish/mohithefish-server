@@ -16,12 +16,14 @@ export default class Room {
   members: Array<Player>;
   currentlyInGame: boolean = false;
   isPrivate: boolean = false;
+  server: io.Server;
 
-  constructor(roomId: string, host: Player, roomType: string) {
+  constructor(roomId: string, host: Player, server: io.Server, roomType: string) {
     this.roomId = roomId;
     host.roomId = roomId;
     this.members = [host];
     this.roomType = roomType;
+    this.server = server;
   }
 
   updateSettings(settings:any) {

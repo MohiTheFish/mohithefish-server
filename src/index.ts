@@ -116,15 +116,15 @@ server.on("connection", (socket: Socket) => {
     let newRoom: any;
     switch(game) {
       case gameChoices[0]: {
-        newRoom = new SpyfallRoom(newroomId, player, settings);
+        newRoom = new SpyfallRoom(newroomId, player, server, settings);
         break;
       }
       case gameChoices[1]: {
-        newRoom = new MafiaRoom(newroomId, player, settings);
+        newRoom = new MafiaRoom(newroomId, player, server, settings);
         break;
       }
       default: {
-        newRoom = new Room(newroomId, player, 'basic');
+        newRoom = new Room(newroomId, player, server, 'basic');
       }
     }
     
@@ -247,6 +247,15 @@ server.on("connection", (socket: Socket) => {
     if (player){
       player.disconnectPlayer();
     }
+  });
+
+
+  socket.on('sendMafiaMessage', function({userId, message}) {
+    const player = userIdToPlayer.get(userId)!;
+    const room = (<MafiaRoom> (rooms.get(player.roomId)!));
+    // room.updateChat(message);
+    
+
   });
 
 });

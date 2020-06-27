@@ -12,6 +12,7 @@ enum ROLES {
   GODFATHER,
   SK,
   JOKER,
+  NUM_ROLES,
 };
 
 type mafiaProfile = {
@@ -21,6 +22,23 @@ type mafiaProfile = {
   isAbstaining: boolean,
   targetOfPower: string,
 };
+
+function getNumMafia(numMafia: number, numMembers: number) : number {
+  if (numMafia >= 0) {
+    return numMafia;
+  }
+  if (numMembers < 5) {
+    return 1;
+  }
+  if (numMembers < 11) {
+    return 2;
+  }
+  if (numMembers < 18) {
+    return 3;
+  }
+  return 4;
+  
+}
 
 /**
  * Randomly shuffles a given array
@@ -73,65 +91,54 @@ export default class MafiaRoom extends Room {
   secondaryTimeRemaining: number = 0;
   secondaryInterval: any = null;
   mafiaRoomId: string;
+  roleCounts: object = {};
 
   memberProfiles: Array<mafiaProfile> = [];
 
-  constructor(roomId: string, host: Player, settings: any) {
-    super(roomId, host, 'mafia');
+  setMafiaSettings(mafiaSettings: any) {
+    const {
+      dayTimeLimit, 
+      nightTimeLimit,
+      defenseTimeLimit,
+      numMafia,
+      allowSK,
+      allowJoker,
+    } = mafiaSettings;
+    
+
+    this.dayTimeLimit = Number.parseInt(dayTimeLimit);
+    this.nightTimeLimit = Number.parseInt(nightTimeLimit);
+    this.defenseTimeLimit = Number.parseInt(defenseTimeLimit);
+    this.numMafia = getNumMafia(Number.parseInt(numMafia), this.members.length);
+    this.allowSK = allowSK;
+    this.allowJoker = allowJoker;
+  }
+
+  constructor(roomId: string, host: Player, server: io.Server, settings: any) {
+    super(roomId, host, server, 'mafia');
     console.log(settings);
     
     const { 
       isPrivate, 
-      mafia: {
-        dayTimeLimit, 
-        nightTimeLimit,
-        defenseTimeLimit,
-        numMafia,
-        allowSK,
-        allowJoker,
-      }
+      mafia,
     } = settings;
 
     this.isPrivate = isPrivate;
     this.mafiaRoomId = uuid();
 
-    this.dayTimeLimit = Number.parseInt(dayTimeLimit);
-    this.nightTimeLimit = Number.parseInt(nightTimeLimit);
-    this.defenseTimeLimit = Number.parseInt(defenseTimeLimit);
-    this.numMafia = Number.parseInt(numMafia);
-    this.allowSK = allowSK;
-    this.allowJoker = allowJoker;
+    this.setMafiaSettings(mafia);
   }
 
   updateSettings(settings: any) : any {
     const { 
-      mafia: {
-        dayTimeLimit, 
-        nightTimeLimit,
-        defenseTimeLimit,
-        numMafia,
-        allowSK,
-        allowJoker,
-      }
+      mafia
     } = settings;
 
-    this.dayTimeLimit = Number.parseInt(dayTimeLimit);
-    this.nightTimeLimit = Number.parseInt(nightTimeLimit);
-    this.defenseTimeLimit = Number.parseInt(defenseTimeLimit);
-    this.numMafia = Number.parseInt(numMafia);
-    this.allowSK = allowSK;
-    this.allowJoker = allowJoker;
+    this.setMafiaSettings(mafia);
 
     return { 
       isPrivate: this.isPrivate, 
-      mafia: {
-        dayTimeLimit, 
-        nightTimeLimit,
-        defenseTimeLimit,
-        numMafia,
-        allowSK,
-        allowJoker,
-      }
+      mafia,
     };
   }
 
@@ -151,20 +158,7 @@ export default class MafiaRoom extends Room {
     return roomInfo;
   }
 
-  getGameState(myIndex: number) : any{
-    const profileInfo: any[] = [];
-    profileInfo.length = this.memberProfiles.length;
-    this.memberProfiles.forEach((profile,index) => {
-      profileInfo[index] = {
-        isAlive: profile.isAlive,
-      }
-    })
-
-    return {
-      profileInfo,
-    }
-  }
-  begin(server: io.Server) : any {
+  begin() : any {
     super.begin();
 
     const numPlayers = this.members.length;
@@ -215,6 +209,10 @@ export default class MafiaRoom extends Room {
     const baseGameState = {
       time: this.mainTimeRemaining,
       role: ROLES.VILLAGER,
+      roleCount: {
+        mafiaCount: this.numMafia,
+        villagerCount: (roles.length-this.numMafia)
+      }
     }
 
     console.log(profiles);
@@ -224,12 +222,11 @@ export default class MafiaRoom extends Room {
         baseGameState.role = profiles[index].role;
         socket.emit(GAMESTARTED, baseGameState);
       }
-    })
+    });
     this.memberProfiles = profiles;
 
     // Create a repeating interval. This server will synchronize the clocks for all clients.
-    this.mainInterval = setInterval(() => {this.sendTime(server)}, 1000);
-
+    this.mainInterval = setInterval(this.sendTime, 1000); 
     
   }
 
@@ -243,6 +240,9 @@ export default class MafiaRoom extends Room {
       clearInterval(this.secondaryInterval);
       this.secondaryInterval = null;
     }
+    this.phase = 0;
+    this.memberProfiles = [];
+    this.roleCounts = {};
   }
 
   pauseMainTime(server: io.Server) {
@@ -250,23 +250,22 @@ export default class MafiaRoom extends Room {
       clearInterval(this.mainInterval);
       this.mainInterval = null;
 
-      this.secondaryInterval = setInterval(() => {this.secondarySendTime(server)}, 1000);
+      this.secondaryInterval = setInterval(this.secondarySendTime, 1000);
     }
   }
 
-  secondarySendTime(server: io.Server) {
+  secondarySendTime() {
     // Interval calls.
-    server.to(this.roomId).emit('secondaryTimeUpdate', this.secondaryTimeRemaining);
+    this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining]);
     this.secondaryTimeRemaining -= 1;
     if(this.secondaryTimeRemaining === -1) {
-
       clearInterval(this.secondaryInterval);
     }
   }
 
-  sendTime(server: io.Server) {
+  sendTime() {
     // Interval calls.
-    server.to(this.roomId).emit('mainTimeUpdate', this.mainTimeRemaining);
+    this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining]);
     console.log(this.mainTimeRemaining);
     this.mainTimeRemaining -= 1;
     if(this.mainTimeRemaining === -1) {

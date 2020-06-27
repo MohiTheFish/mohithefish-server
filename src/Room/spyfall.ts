@@ -86,8 +86,8 @@ export default class SpyfallRoom extends Room {
   roomInterval: any;
   gameType: string = "";
 
-  constructor(roomId: string, host: Player, settings: any) {
-    super(roomId, host, 'spyfall');
+  constructor(roomId: string, host: Player, server: io.Server, settings: any) {
+    super(roomId, host, server, 'spyfall');
     console.log(settings);
     
     const { isPrivate, spyfall: {time, gameType}} = settings;
@@ -122,7 +122,7 @@ export default class SpyfallRoom extends Room {
     return roomInfo;
   }
 
-  begin(server: io.Server) : any {
+  begin() : any {
     super.begin();
     // Randomly pick a spy
     this.spyIndex = getRandomInt(this.members.length);
@@ -133,7 +133,7 @@ export default class SpyfallRoom extends Room {
       clearInterval(this.roomInterval);
     }
     // Create a repeating interval. This server will synchronize the clocks for all clients.
-    this.roomInterval = setInterval(() => {this.sendTime(server)}, 1000);
+    this.roomInterval = setInterval(this.sendTime, 1000);
     
     const list = getList(this.gameType);
     const secretItem = list[getRandomInt(list.length)];
@@ -143,7 +143,7 @@ export default class SpyfallRoom extends Room {
       locations: getList(this.gameType),
       secretLocation: secretItem,
     };
-    server.to(this.roomId).emit(GAMESTARTED, gameState);
+    this.server.to(this.roomId).emit(GAMESTARTED, gameState);
   }
 
   end() {
@@ -154,9 +154,9 @@ export default class SpyfallRoom extends Room {
     }
   }
 
-  sendTime(server: io.Server) {
+  sendTime() {
     // Interval calls.
-    server.to(this.roomId).emit('mainTimeUpdate', this.timeRemaining);
+    this.server.to(this.roomId).emit('mainTimeUpdate', this.timeRemaining);
     this.timeRemaining -= 1;
     if(this.timeRemaining === -1) {
       this.end();
