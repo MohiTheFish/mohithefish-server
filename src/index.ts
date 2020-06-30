@@ -8,8 +8,8 @@ import MafiaRoom from "./Room/mafia";
 
 var allowedOrigins = "http://mohithefish.github.io/:* http://mohithefish.github.io:*";
 const server = io.listen((process.env.PORT || 5000), {
-  // origins: "*:*"
-  origins: allowedOrigins
+  origins: "*:*"
+  // origins: allowedOrigins
 });
 
 //http:localhost:5000/:game/:roomId
@@ -250,4 +250,9 @@ server.on("connection", (socket: Socket) => {
     room.updateChat(index, userId, message);
   });
 
+  socket.on('voteMafiaPlayer', function({userId, myIndex, targetIndex}) {
+    const player = userIdToPlayer.get(userId)!;
+    const room = (<MafiaRoom> (rooms.get(player.roomId)!));
+    room.votePlayer(myIndex, targetIndex);
+  });
 });

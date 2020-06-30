@@ -51,4 +51,10 @@ export default class Player {
     this.roomId = roomId;
   }
 
+  emit(eventName: string, data: any) {
+    if (this.socket) {
+      this.socket.emit(eventName, data);
+    }
+  }
+
 }

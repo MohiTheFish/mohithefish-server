@@ -24,7 +24,8 @@ enum AUDIENCE {
 type mafiaProfile = {
   role: ROLES,
   isAlive: boolean,
-  votingFor: string,
+  numVotes: number,
+  votingFor: number,
   isAbstaining: boolean,
   targetOfPower: string,
 };
@@ -216,8 +217,9 @@ export default class MafiaRoom extends Room {
         role: role,
         isAlive: true,
         isAbstaining: false,
+        numVotes: 0,
         targetOfPower: "",
-        votingFor: "",
+        votingFor: -1,
       }
       if (role === ROLES.MAFIA) {
         if ( index < this.members.length) {
@@ -235,7 +237,8 @@ export default class MafiaRoom extends Room {
       roleCount: {
         mafiaCount: this.numMafia,
         villagerCount: (roles.length-this.numMafia)
-      }
+      },
+      numPlayers,
     }
 
     this.members.forEach((member, index) => {
@@ -249,9 +252,11 @@ export default class MafiaRoom extends Room {
 
     // Create a repeating interval. This server will synchronize the clocks for all clients.
     this.mainInterval = setInterval(() => this.sendTime(), 1000); 
-    
   }
 
+  /**
+   * Performs clean up of the mafia room
+   */
   end() {
     super.end();
     if(this.mainInterval) {
@@ -266,6 +271,10 @@ export default class MafiaRoom extends Room {
     this.memberProfiles = [];
   }
 
+
+  /**
+   * Stop the main sendTime function interval.
+   */
   pauseMainTime() {
     if (this.mainInterval) {
       clearInterval(this.mainInterval);
@@ -275,6 +284,9 @@ export default class MafiaRoom extends Room {
     }
   }
 
+  /**
+   * Sends the secondary time (court duration) to all the players.
+   */
   secondarySendTime() {
     // Interval calls.
     this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining]);
@@ -284,6 +296,9 @@ export default class MafiaRoom extends Room {
     }
   }
 
+  /**
+   * Sends the current time remaining for the session to all players
+   */
   sendTime() {
     // Interval calls.
     this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining]);
@@ -299,6 +314,70 @@ export default class MafiaRoom extends Room {
     }
   }
 
+  /**
+   * Votes for a player during the day phase and updates the chat history.
+   * @param myIndex the index of the player voting
+   * @param targetIndex the target of the vote
+   */
+  votePlayer(myIndex: number, targetIndex: number) {
+    const myPlayer = this.members[myIndex];
+    const targetPlayer = this.members[targetIndex];
+    const myProfile = this.memberProfiles[myIndex];
+    const targetProfile = this.memberProfiles[targetIndex];
+
+    const oldTarget = myProfile.votingFor;
+    
+    let message = '';
+    // 3 cases
+    // 1) myPlayer is voting for someone fresh
+    // 2) myPlayer is removing their vote for a player
+    // 3) myPlayer is switching their vote
+    if (myProfile.votingFor === -1) {
+      myProfile.votingFor = targetIndex;
+      targetProfile.numVotes++;
+      message = `${myPlayer.username} is voting for ${targetPlayer.username}`;
+    }
+    else if(myProfile.votingFor === targetIndex) {
+      myProfile.votingFor = -1;
+      targetProfile.numVotes--;
+      message = `${myPlayer.username} is no longer voting for ${targetPlayer.username}`;
+    }
+    else {
+      const oldTargetPlayer = this.members[oldTarget];
+      const oldTargetProfile = this.memberProfiles[oldTarget];
+      oldTargetProfile.numVotes--;
+      
+      myProfile.votingFor = targetIndex;
+      targetProfile.numVotes++;
+      message = `${myPlayer.username} switched vote from ${oldTargetPlayer.username} to ${targetPlayer.username}`;
+    }
+
+    const baseObj = {
+      audience: AUDIENCE.EVERYONE,
+      phase: this.phase,
+      message,
+      newTarget: myProfile.votingFor,
+      oldTarget,
+    };
+    myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedMafia', baseObj);
+    myPlayer.emit('iVotedMafia', baseObj);
+
+    // Need at least half (rounded up) votes to start court.
+    const numVotesNeeded = Math.floor((this.memberProfiles.length +1) / 2);
+    if (targetProfile.numVotes >= numVotesNeeded) {
+      console.log('start court!');
+    }
+
+
+    
+  }
+
+  /**
+   * Sends a message in the chat history and updates all relevant parties of the message
+   * @param index The index of the player sending a message 
+   * @param userId The user id of the player sending a message
+   * @param message The message the player sent
+   */
   updateChat(index: number, userId: string, message: string) {
     const player = this.members[index];
     const profile = this.memberProfiles[index];
@@ -326,10 +405,8 @@ export default class MafiaRoom extends Room {
       }
       else {
         // Otherwise just update the player's individual chat message. 
-        if (player.socket) {
-          baseObj.audience = AUDIENCE.NOBODY;
-          this.server.to(player.socket.id).emit('mafiaChatUpdated', baseObj)
-        }
+        baseObj.audience = AUDIENCE.NOBODY;
+        player.emit('mafiaChatUpdated', baseObj);
       }
     }
   }
