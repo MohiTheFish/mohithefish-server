@@ -98,6 +98,10 @@ function printExists(item: any, itemname: string) {
   }
 }
 
+const ABSTAIN: number  = -2;
+const UNDECIDED: number = -1;
+const RECAP_TIME: number = 3;
+
 export default class MafiaRoom extends Room {
   dayTimeLimit: number = 300;
   nightTimeLimit: number = 60;
@@ -108,10 +112,12 @@ export default class MafiaRoom extends Room {
   allowJoker: boolean = false;
   phase: number = 0;
   mainTimeRemaining: number = 0;
-  mainInterval: any = null;
+  mainInterval: NodeJS.Timeout | null = null;
   secondaryTimeRemaining: number = 0;
-  secondaryInterval: any = null;
+  secondaryInterval: NodeJS.Timeout | null = null;
   mafiaRoomId: string;
+  numAbstain: number = 0;
+  isRecapPeriod: boolean = false;
 
   memberProfiles: Array<mafiaProfile> = [];
 
@@ -176,9 +182,17 @@ export default class MafiaRoom extends Room {
     return roomInfo;
   }
 
+  /**
+   * Initialize profiles
+   * 
+   * Initializes numAbstain
+   */
   begin() : any {
     super.begin();
 
+    this.numAbstain = 0;
+    this.secondaryTimeRemaining = this.defenseTimeLimit;
+    this.isRecapPeriod = true;
     const numPlayers = this.members.length;
     const profiles: mafiaProfile[] = [];
 
@@ -231,6 +245,7 @@ export default class MafiaRoom extends Room {
     });
 
     this.mainTimeRemaining = 5; // Phase 0 will have 5 seconds.
+    this.isRecapPeriod = true;
     const baseGameState = {
       time: this.mainTimeRemaining,
       role: ROLES.VILLAGER,
@@ -280,6 +295,7 @@ export default class MafiaRoom extends Room {
       clearInterval(this.mainInterval);
       this.mainInterval = null;
 
+
       this.secondaryInterval = setInterval(() => this.secondarySendTime(), 1000);
     }
   }
@@ -292,7 +308,9 @@ export default class MafiaRoom extends Room {
     this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining]);
     this.secondaryTimeRemaining -= 1;
     if(this.secondaryTimeRemaining === -1) {
-      clearInterval(this.secondaryInterval);
+      if(this.secondaryInterval) {
+        clearInterval(this.secondaryInterval);
+      }
     }
   }
 
@@ -304,12 +322,19 @@ export default class MafiaRoom extends Room {
     this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining]);
     this.mainTimeRemaining -= 1;
     if(this.mainTimeRemaining === -1) {
-      this.phase += 1;
-      if (this.phase % 2 === 1) {
-        this.mainTimeRemaining = this.nightTimeLimit;
+      if (this.isRecapPeriod) {
+        this.isRecapPeriod = false;
+        this.phase++;
+        if (this.phase % 2 === 1) {
+          this.mainTimeRemaining = this.nightTimeLimit;
+        }
+        else {
+          this.mainTimeRemaining = this.dayTimeLimit;
+        }
       }
       else {
-        this.mainTimeRemaining = this.dayTimeLimit;
+        this.isRecapPeriod = true;
+        this.mainTimeRemaining = RECAP_TIME;
       }
     }
   }
@@ -321,35 +346,68 @@ export default class MafiaRoom extends Room {
    */
   votePlayer(myIndex: number, targetIndex: number) {
     const myPlayer = this.members[myIndex];
-    const targetPlayer = this.members[targetIndex];
     const myProfile = this.memberProfiles[myIndex];
-    const targetProfile = this.memberProfiles[targetIndex];
 
     const oldTarget = myProfile.votingFor;
-    
+    // Need at least half the number of players to vote for a choice.
+    const numVotesNeeded = Math.floor((this.memberProfiles.length +1) / 2);
     let message = '';
-    // 3 cases
-    // 1) myPlayer is voting for someone fresh
-    // 2) myPlayer is removing their vote for a player
-    // 3) myPlayer is switching their vote
-    if (myProfile.votingFor === -1) {
-      myProfile.votingFor = targetIndex;
-      targetProfile.numVotes++;
-      message = `${myPlayer.username} is voting for ${targetPlayer.username}`;
-    }
-    else if(myProfile.votingFor === targetIndex) {
-      myProfile.votingFor = -1;
-      targetProfile.numVotes--;
-      message = `${myPlayer.username} is no longer voting for ${targetPlayer.username}`;
+    // 4 cases
+    // 1) myPlayer is abstaining
+    // 2) myPlayer is voting for someone fresh
+    // 3) myPlayer is removing their vote for a player
+    // 4) myPlayer is switching their vote
+    if (targetIndex === ABSTAIN) {
+      if(oldTarget === ABSTAIN) {
+        this.numAbstain--;
+        message = `${myPlayer.username} is no longer abstaining.`;
+      }
+      else if(oldTarget === UNDECIDED) {
+        this.numAbstain++;
+        message = `${myPlayer.username} is choosing to abstain.`;
+      }
+      else { //oldTarget was player
+        const oldTargetPlayer = this.members[oldTarget];
+        const oldTargetProfile = this.memberProfiles[oldTarget];
+        oldTargetProfile.numVotes--;
+
+        this.numAbstain++;
+        message = `${myPlayer.username} is switched from voting ${oldTargetPlayer.username} to abstaining.`;
+      }
+      myProfile.votingFor = ABSTAIN;
     }
     else {
-      const oldTargetPlayer = this.members[oldTarget];
-      const oldTargetProfile = this.memberProfiles[oldTarget];
-      oldTargetProfile.numVotes--;
-      
-      myProfile.votingFor = targetIndex;
-      targetProfile.numVotes++;
-      message = `${myPlayer.username} switched vote from ${oldTargetPlayer.username} to ${targetPlayer.username}`;
+      const targetPlayer = this.members[targetIndex];
+      const targetProfile = this.memberProfiles[targetIndex];
+      if (oldTarget === ABSTAIN) {
+        myProfile.votingFor = ABSTAIN;
+        this.numAbstain--;
+        message = `${myPlayer.username} switched from abstaining to voting for ${targetPlayer.username}.`;
+      }
+      else if (oldTarget === UNDECIDED) {
+        myProfile.votingFor = targetIndex;
+        targetProfile.numVotes++;
+        message = `${myPlayer.username} is voting for ${targetPlayer.username}.`;
+      }
+      else if(oldTarget === targetIndex) {
+        myProfile.votingFor = UNDECIDED;
+        targetProfile.numVotes--;
+        message = `${myPlayer.username} is no longer voting for ${targetPlayer.username}.`;
+      }
+      else {
+        const oldTargetPlayer = this.members[oldTarget];
+        const oldTargetProfile = this.memberProfiles[oldTarget];
+        oldTargetProfile.numVotes--;
+        
+        myProfile.votingFor = targetIndex;
+        targetProfile.numVotes++;
+        message = `${myPlayer.username} switched vote from ${oldTargetPlayer.username} to ${targetPlayer.username}.`;
+      }
+
+      // Need at least half (rounded up) votes to start court.
+      if (targetProfile.numVotes >= numVotesNeeded) {
+        console.log('start court!');
+      }
     }
 
     const baseObj = {
@@ -361,12 +419,6 @@ export default class MafiaRoom extends Room {
     };
     myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedMafia', baseObj);
     myPlayer.emit('iVotedMafia', baseObj);
-
-    // Need at least half (rounded up) votes to start court.
-    const numVotesNeeded = Math.floor((this.memberProfiles.length +1) / 2);
-    if (targetProfile.numVotes >= numVotesNeeded) {
-      console.log('start court!');
-    }
 
 
     
