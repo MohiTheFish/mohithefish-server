@@ -26,7 +26,6 @@ type mafiaProfile = {
   isAlive: boolean,
   numVotes: number,
   votingFor: number,
-  isAbstaining: boolean,
   targetOfPower: string,
 };
 
@@ -230,7 +229,6 @@ export default class MafiaRoom extends Room {
       const profile = {
         role: role,
         isAlive: true,
-        isAbstaining: false,
         numVotes: 0,
         targetOfPower: "",
         votingFor: -1,
@@ -329,6 +327,15 @@ export default class MafiaRoom extends Room {
           this.mainTimeRemaining = this.nightTimeLimit;
         }
         else {
+          this.memberProfiles = this.memberProfiles.map(profile=> {
+            return {
+              role: profile.role,
+              isAlive: profile.isAlive,
+              numVotes: 0,
+              votingFor: -1,
+              targetOfPower: '',
+            }
+          })
           this.mainTimeRemaining = this.dayTimeLimit;
         }
       }
@@ -361,10 +368,12 @@ export default class MafiaRoom extends Room {
       if(oldTarget === ABSTAIN) {
         this.numAbstain--;
         message = `${myPlayer.username} is no longer abstaining.`;
+        myProfile.votingFor = UNDECIDED;
       }
       else if(oldTarget === UNDECIDED) {
         this.numAbstain++;
         message = `${myPlayer.username} is choosing to abstain.`;
+        myProfile.votingFor = ABSTAIN;
       }
       else { //oldTarget was player
         const oldTargetPlayer = this.members[oldTarget];
@@ -372,15 +381,15 @@ export default class MafiaRoom extends Room {
         oldTargetProfile.numVotes--;
 
         this.numAbstain++;
-        message = `${myPlayer.username} is switched from voting ${oldTargetPlayer.username} to abstaining.`;
+        message = `${myPlayer.username} switched from voting ${oldTargetPlayer.username} to abstaining.`;
+        myProfile.votingFor = ABSTAIN;
       }
-      myProfile.votingFor = ABSTAIN;
     }
     else {
       const targetPlayer = this.members[targetIndex];
       const targetProfile = this.memberProfiles[targetIndex];
       if (oldTarget === ABSTAIN) {
-        myProfile.votingFor = ABSTAIN;
+        myProfile.votingFor = targetIndex;
         this.numAbstain--;
         message = `${myPlayer.username} switched from abstaining to voting for ${targetPlayer.username}.`;
       }
