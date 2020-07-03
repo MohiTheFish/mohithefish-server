@@ -10,10 +10,18 @@ export type ConciseRoomInfo = {
   isPrivate: boolean,
 };
 
+export type LobbyRoomInfo = {
+  members: Array<string>,
+  spectators: Array<string>,
+  roomId: string,
+  settings?: any
+}
+
 export default class Room {
   roomId: string;
   roomType: string;
   members: Array<Player>;
+  spectators: Array<Player>;
   currentlyInGame: boolean = false;
   isPrivate: boolean = false;
   server: io.Server;
@@ -22,6 +30,7 @@ export default class Room {
     this.roomId = roomId;
     host.roomId = roomId;
     this.members = [host];
+    this.spectators = [];
     this.roomType = roomType;
     this.server = server;
   }
@@ -29,13 +38,16 @@ export default class Room {
   updateSettings(settings:any) {
     // Set is private eventually
   }
-  getSettings() : any {
+  getSettings() : LobbyRoomInfo {
     // prototyping for subclasses to use
+    return this.getRoomInfo();
   }
-  getRoomInfo() : any {
+  getRoomInfo() : LobbyRoomInfo {
     let memberNames = this.members.map(m => m.username);
+    let spectatorNames = this.spectators.map(m => m.username);
     return {
       members: memberNames,
+      spectators: spectatorNames,
       roomId: this.roomId,
     };
   }
@@ -55,17 +67,66 @@ export default class Room {
   }
 
   addPlayer(player: Player) : void {
-    this.members.push(player);
     player.roomId = this.roomId;
+    if (this.currentlyInGame) {
+      this.spectators.push(player);
+      const roomSettings = this.getSettings();
+      player.socket?.emit('youSpectated', roomSettings);
+    }
+    else {
+      this.members.push(player);
+      // Inform everyone currently in the room that someone else has joined.
+      const roomInfo = this.getRoomInfo();
+      this.server.to(this.roomId).emit('othersJoined', roomInfo);
+      player.socket?.join(this.roomId);
+
+      const roomSettings = this.getSettings();
+      // Inform original client that they have now joined.
+      player.socket?.emit('youJoined', roomSettings);
+    }
+    
   }
 
-  removePlayer(player: Player) : number {
-    const index = this.members.indexOf(player);
-    if (index > -1) {
-      this.members.splice(index, 1);
+  deleteRoomFromNamespace(nameSpaceToRooms: Map<string, Room[]>) {
+    const rooms: Array<Room> = nameSpaceToRooms.get(this.roomType)!;
+    for(let i=0; i<rooms.length; i++){
+      const room = rooms[i];
+      if (room === this) {
+        room.end();
+        this.informSpectators();
+        rooms.splice(i, 1);
+        break;
+      }
     }
-    player.roomId = "";
-    return index;
+  }
+
+  deleteHost(nameSpaceToRooms: Map<string, Room[]>) {
+    const shouldDeleteRoom = this.removeHost();
+    if (shouldDeleteRoom) {
+      this.deleteRoomFromNamespace(nameSpaceToRooms);
+    }
+  }
+
+  removePlayer(player: Player, nameSpaceToRooms: Map<string, Room[]>) {
+    console.log('currently in game:' + this.currentlyInGame);
+    // If players are in the game, we do not want to screw around with the indexing situation. 
+    if (this.currentlyInGame) { return; }
+
+    player.socket?.leave(this.roomId);
+    let index = 0;
+    // Delete the player from the room, and return the index of where they were in the room. 
+    if(this.host === player) {
+      this.deleteHost(nameSpaceToRooms);
+    }
+    else {
+      index = this.members.indexOf(player);
+      if (index > -1) {
+        this.members.splice(index, 1);
+      }
+      player.roomId = "";
+    }
+    console.log('index of removed player:' + index);
+    this.server.to(this.roomId).emit('playerLeft', index);
   }
 
   get host() {
@@ -88,5 +149,27 @@ export default class Room {
 
   end() {
     this.currentlyInGame = false;
+  }
+
+  returnToLobby(nameSpaceToRooms: Map<string, Room[]>) {
+    this.clearInactivePlayers(nameSpaceToRooms);
+    this.addSpectatorsToLobby();
+  }
+  clearInactivePlayers(nameSpaceToRooms: Map<string, Room[]>) {
+    for(var i = 0; i<this.members.length; i++) {
+      const player = this.members[i];
+      if(player.disconnectTime > 0) { // are disconnected
+        this.removePlayer(player, nameSpaceToRooms);
+        i--;
+      }
+    }
+  }
+  addSpectatorsToLobby() {
+    this.spectators.forEach(player => {
+      this.members.push(player)
+    })
+  }
+  informSpectators() {
+    this.server.to(this.roomId).emit('roomClosed');
   }
 }

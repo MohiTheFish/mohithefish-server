@@ -31,27 +31,8 @@ gameChoices.forEach(game => {
   nameSpaceToRooms.set(game, []);
 });
 
-function deleteRoomFromNamespace(game: string, roomToDelete: Room) {
-  const rooms: Array<Room> = nameSpaceToRooms.get(game)!;
-  for(let i=0; i<rooms.length; i++){
-    const room = rooms[i];
-    if (room === roomToDelete) {
-      room.end();
-      rooms.splice(i, 1);
-      break;
-    }
-  }
-}
 
-
-function deleteHost(room: Room) {
-  const shouldDeleteRoom = room.removeHost();
-  if (shouldDeleteRoom) {
-    deleteRoomFromNamespace(room.roomType, room);
-  }
-}
-
-function ejectPlayer(socket: io.Socket, server: io.Server) : Player | undefined {
+function ejectPlayer(socket: io.Socket) : Player | undefined {
   const userId = socketToUserId.get(socket.id);
   if (!userId) {return;}
   const player = userIdToPlayer.get(userId)!;
@@ -59,17 +40,8 @@ function ejectPlayer(socket: io.Socket, server: io.Server) : Player | undefined 
   // If player is already in a room
   if (roomId) {
     // Remove them from that room
-    socket.leave(roomId);
     const currentRoom = rooms.get(roomId)!;
-    let index = 0;
-    // Delete the player from the room, and return the index of where they were in the room. 
-    if(currentRoom.host === player) {
-      deleteHost(currentRoom);
-    }
-    else {
-      index = currentRoom.removePlayer(player);
-    }
-    server.to(roomId).emit('playerLeft', index);
+    currentRoom.removePlayer(player, nameSpaceToRooms);
   }
   return player;
 }
@@ -159,12 +131,12 @@ server.on("connection", (socket: Socket) => {
   });
 
   socket.on('ejectPlayerFromRoom', function() {
-    ejectPlayer(socket, server);
+    ejectPlayer(socket);
   });
 
   socket.on('getAvailableRooms', function(game: string) {
     // Get player from their userId
-    ejectPlayer(socket, server);
+    ejectPlayer(socket);
 
     // Otherwise just iterate through all the rooms this namespace has. 
     const candidateRooms = nameSpaceToRooms.get(game)!;
@@ -188,15 +160,6 @@ server.on("connection", (socket: Socket) => {
       // Get player and add them to room;
       const player = userIdToPlayer.get(userId)!;
       room.addPlayer(player);
-
-      // Inform everyone currently in the room that someone else has joined.
-      const roomInfo = room.getRoomInfo();
-      server.to(targetRoom).emit('othersJoined', roomInfo);
-      socket.join(targetRoom);
-
-      const roomSettings = room.getSettings();
-      // Inform original client that they have now joined.
-      socket.emit('youJoined', roomSettings);
     }
     else {
       socket.emit('invalidRoom', `${targetRoom} was not found.`);
@@ -220,6 +183,7 @@ server.on("connection", (socket: Socket) => {
     const roomId = player.roomId;
     const room = (rooms.get(roomId)!);
     room.end();
+    room.returnToLobby(nameSpaceToRooms);
 
     server.to(roomId).emit('sentBackToLobby');
   });
@@ -237,7 +201,7 @@ server.on("connection", (socket: Socket) => {
 
   socket.on("disconnect", () => {
     // Remove player if they are in a room
-    const player = ejectPlayer(socket, server);
+    const player = ejectPlayer(socket);
     if (player){
       player.disconnectPlayer();
     }
