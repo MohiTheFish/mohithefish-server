@@ -1,4 +1,4 @@
-import Room, {GAMESTARTED} from '../room';
+import Room, {GAMESTARTED, LobbyRoomInfo} from '../room';
 import Player, {getRandomInt} from '../player';
 
 import io from 'socket.io';
@@ -150,8 +150,8 @@ export default class SpyfallRoom extends Room {
     };
   }
 
-  getSettings() : any {
-    const roomInfo = super.getRoomInfo();
+  getSettings() : LobbyRoomInfo {
+    const roomInfo = super.getSettings();
     roomInfo.settings = {
       isPrivate: this.isPrivate,
       spyfall: {
