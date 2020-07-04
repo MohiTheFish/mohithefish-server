@@ -12,22 +12,28 @@ export type ConciseRoomInfo = {
 
 export type LobbyRoomInfo = {
   members: Array<string>,
-  spectators: Array<string>,
   roomId: string,
-  settings?: any
+  spectators?: Array<string>,
+  settings?: object,
 }
+
+// export type LobbySettings = {
+//   settings: object,
+// };
 
 export default class Room {
   roomId: string;
   roomType: string;
   members: Array<Player>;
   spectators: Array<Player>;
+  spectatorChannel: string;
   currentlyInGame: boolean = false;
   isPrivate: boolean = false;
   server: io.Server;
 
   constructor(roomId: string, host: Player, server: io.Server, roomType: string) {
     this.roomId = roomId;
+    this.spectatorChannel = `${roomId}-spectator`;
     host.roomId = roomId;
     this.members = [host];
     this.spectators = [];
@@ -38,16 +44,14 @@ export default class Room {
   updateSettings(settings:any) {
     // Set is private eventually
   }
-  getSettings() : LobbyRoomInfo {
+  getSettings() : object {
     // prototyping for subclasses to use
-    return this.getRoomInfo();
+    return {};
   }
   getRoomInfo() : LobbyRoomInfo {
     let memberNames = this.members.map(m => m.username);
-    let spectatorNames = this.spectators.map(m => m.username);
     return {
       members: memberNames,
-      spectators: spectatorNames,
       roomId: this.roomId,
     };
   }
@@ -67,10 +71,15 @@ export default class Room {
   }
 
   addPlayer(player: Player) : void {
+    // If player's room id matches this room id, we are already done.
+    if (player.roomId === this.roomId) {return; }
     player.roomId = this.roomId;
     if (this.currentlyInGame) {
+      console.log(`Adding Spectator: [${player.username}]`);
       this.spectators.push(player);
+
       const roomSettings = this.getSettings();
+      player.socket?.join(this.spectatorChannel);
       player.socket?.emit('youSpectated', roomSettings);
     }
     else {
@@ -80,11 +89,11 @@ export default class Room {
       this.server.to(this.roomId).emit('othersJoined', roomInfo);
       player.socket?.join(this.roomId);
 
-      const roomSettings = this.getSettings();
+
+      roomInfo.settings = this.getSettings();
       // Inform original client that they have now joined.
-      player.socket?.emit('youJoined', roomSettings);
+      player.socket?.emit('youJoined', roomInfo);
     }
-    
   }
 
   deleteRoomFromNamespace(nameSpaceToRooms: Map<string, Room[]>) {
@@ -108,9 +117,20 @@ export default class Room {
   }
 
   removePlayer(player: Player, nameSpaceToRooms: Map<string, Room[]>) {
-    console.log('currently in game:' + this.currentlyInGame);
-    // If players are in the game, we do not want to screw around with the indexing situation. 
-    if (this.currentlyInGame) { return; }
+    // If players are in the game, we do not want to screw around with the indexing situation of members.
+    // Check if the player exists in the spectator list
+    if (this.currentlyInGame) {
+      console.log('remove spectator');
+      let index = this.spectators.indexOf(player);
+      if (index > -1) {
+        player.socket?.leave(this.roomId);
+        this.spectators.splice(index, 1);
+      }
+      player.roomId = '';
+      this.server.to(this.spectatorChannel).emit('spectatorLeft', index);
+
+      return;
+    }
 
     player.socket?.leave(this.roomId);
     let index = 0;
@@ -152,8 +172,8 @@ export default class Room {
   }
 
   returnToLobby(nameSpaceToRooms: Map<string, Room[]>) {
-    this.clearInactivePlayers(nameSpaceToRooms);
     this.addSpectatorsToLobby();
+    this.clearInactivePlayers(nameSpaceToRooms);
   }
   clearInactivePlayers(nameSpaceToRooms: Map<string, Room[]>) {
     for(var i = 0; i<this.members.length; i++) {

@@ -1,4 +1,4 @@
-import Room, {GAMESTARTED, LobbyRoomInfo} from '../room';
+import Room, {GAMESTARTED} from '../room';
 import Player from '../player';
 
 import { v4 as uuid } from 'uuid';
@@ -165,9 +165,8 @@ export default class MafiaRoom extends Room {
     };
   }
 
-  getSettings() : LobbyRoomInfo {
-    const roomInfo = super.getSettings();
-    roomInfo.settings = {
+  getSettings() : object {
+    return {
       isPrivate: this.isPrivate, 
       mafia: {
         dayTimeLimit: this.dayTimeLimit, 
@@ -178,7 +177,6 @@ export default class MafiaRoom extends Room {
         allowJoker: this.allowJoker,
       }
     }
-    return roomInfo;
   }
 
   /**

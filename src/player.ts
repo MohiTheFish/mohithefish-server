@@ -11,6 +11,9 @@ const randomNameOptions = [
   'Balloon',
   'Beaker',
   'Hat',
+  'Armadillo',
+  'Flounder',
+  'Mouse',
 ];
 
 export default class Player {

@@ -1,4 +1,4 @@
-import Room, {GAMESTARTED, LobbyRoomInfo} from '../room';
+import Room, {GAMESTARTED} from '../room';
 import Player, {getRandomInt} from '../player';
 
 import io from 'socket.io';
@@ -150,16 +150,14 @@ export default class SpyfallRoom extends Room {
     };
   }
 
-  getSettings() : LobbyRoomInfo {
-    const roomInfo = super.getSettings();
-    roomInfo.settings = {
+  getSettings() : object {
+    return {
       isPrivate: this.isPrivate,
       spyfall: {
         time: this.maxTime,
         gameType: this.gameType,
       }
     }
-    return roomInfo;
   }
 
   begin() : any {
