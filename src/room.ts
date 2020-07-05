@@ -21,6 +21,10 @@ export type LobbyRoomInfo = {
 //   settings: object,
 // };
 
+function getPlayerNames(players: Array<Player>) {
+  return players.map(m => m.username);
+}
+
 export default class Room {
   roomId: string;
   roomType: string;
@@ -41,6 +45,10 @@ export default class Room {
     this.server = server;
   }
 
+  get host() : Player {
+    return this.members[0];
+  }
+
   updateSettings(settings:any) {
     // Set is private eventually
   }
@@ -49,9 +57,8 @@ export default class Room {
     return {};
   }
   getRoomInfo() : LobbyRoomInfo {
-    let memberNames = this.members.map(m => m.username);
     return {
-      members: memberNames,
+      members: getPlayerNames(this.members),
       roomId: this.roomId,
     };
   }
@@ -76,21 +83,26 @@ export default class Room {
     player.roomId = this.roomId;
     if (this.currentlyInGame) {
       console.log(`Adding Spectator: [${player.username}]`);
-      this.spectators.push(player);
 
-      const roomSettings = this.getSettings();
+      this.spectators.push(player);
+      const roomInfo = this.getRoomInfo();
+      roomInfo.spectators = getPlayerNames(this.spectators);
+
+      this.server.to(this.spectatorChannel).emit('otherSpectators', roomInfo);
+
       player.socket?.join(this.spectatorChannel);
-      player.socket?.emit('youSpectated', roomSettings);
+      roomInfo.settings = this.getSettings(); // Calls the subclass getSettings
+      player.socket?.emit('youSpectated', roomInfo);
     }
     else {
       this.members.push(player);
-      // Inform everyone currently in the room that someone else has joined.
       const roomInfo = this.getRoomInfo();
+
       this.server.to(this.roomId).emit('othersJoined', roomInfo);
+
       player.socket?.join(this.roomId);
 
-
-      roomInfo.settings = this.getSettings();
+      roomInfo.settings = this.getSettings(); //Calls the subClass getSettings
       // Inform original client that they have now joined.
       player.socket?.emit('youJoined', roomInfo);
     }
@@ -123,11 +135,11 @@ export default class Room {
       console.log('remove spectator');
       let index = this.spectators.indexOf(player);
       if (index > -1) {
-        player.socket?.leave(this.roomId);
+        player.socket?.leave(this.spectatorChannel);
         this.spectators.splice(index, 1);
+        player.roomId = '';
+        this.server.to(this.spectatorChannel).emit('spectatorLeft', index);
       }
-      player.roomId = '';
-      this.server.to(this.spectatorChannel).emit('spectatorLeft', index);
 
       return;
     }
@@ -149,10 +161,6 @@ export default class Room {
     this.server.to(this.roomId).emit('playerLeft', index);
   }
 
-  get host() {
-    return this.members[0];
-  }
-
   removeHost() : boolean {
     if (this.members.length === 1) {
       return true;
@@ -172,8 +180,20 @@ export default class Room {
   }
 
   returnToLobby(nameSpaceToRooms: Map<string, Room[]>) {
+    this.server.to(this.roomId).emit('sentBackToLobby');
     this.addSpectatorsToLobby();
     this.clearInactivePlayers(nameSpaceToRooms);
+    this.giveEachPlayerIndex(); // emits 'yourIndex'
+    this.server.to(this.roomId).emit('roomReady');
+  }
+
+  addSpectatorsToLobby() {
+    this.spectators.forEach(player => {
+      player.socket?.leave(this.spectatorChannel);
+      player.socket?.join(this.roomId);
+      this.members.push(player);
+    });
+    this.spectators = [];
   }
   clearInactivePlayers(nameSpaceToRooms: Map<string, Room[]>) {
     for(var i = 0; i<this.members.length; i++) {
@@ -184,11 +204,17 @@ export default class Room {
       }
     }
   }
-  addSpectatorsToLobby() {
-    this.spectators.forEach(player => {
-      this.members.push(player)
+
+  giveEachPlayerIndex() {
+    const members = getPlayerNames(this.members);
+    this.members.forEach( (member, index) => {
+      member.socket?.emit('myIndex', {
+        members,
+        myIndex: index,
+      })
     })
   }
+
   informSpectators() {
     this.server.to(this.roomId).emit('roomClosed');
   }

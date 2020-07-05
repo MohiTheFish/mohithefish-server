@@ -184,20 +184,16 @@ server.on("connection", (socket: Socket) => {
     const room = (rooms.get(roomId)!);
     room.end();
     room.returnToLobby(nameSpaceToRooms);
-
-    server.to(roomId).emit('sentBackToLobby');
   });
 
-  // when socket disconnects, remove it from the list:
-  // also keep a time stamp since last login for player
-  socket.on("forceDisconnect", function(){
-    throw new Error('Client was force disconnected');
-    const playerid = socketToUserId.get(socket.id)!;
-    const player = userIdToPlayer.get(playerid)!;
-    player.disconnectPlayer();
-    socket.disconnect();
-    console.info(`Client forced out [id=${socket.id}]`);
-  });
+  // socket.on("forceDisconnect", function(){
+  //   throw new Error('Client was force disconnected');
+  //   const playerid = socketToUserId.get(socket.id)!;
+  //   const player = userIdToPlayer.get(playerid)!;
+  //   player.disconnectPlayer();
+  //   socket.disconnect();
+  //   console.info(`Client forced out [id=${socket.id}]`);
+  // });
 
   socket.on("disconnect", () => {
     // Remove player if they are in a room
