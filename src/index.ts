@@ -32,6 +32,24 @@ gameChoices.forEach(game => {
 });
 
 
+
+  /**
+   * If the host leaves and all the members have left, the room needs to be removed entirely. 
+   * @param nameSpaceToRooms The map used by the server to track which rooms are part of which game type
+   */
+function deleteRoomFromNamespace(targetRoom: Room) {
+    const rooms: Array<Room> = nameSpaceToRooms.get(targetRoom.roomType)!;
+    for(let i=0; i<rooms.length; i++){
+      const room = rooms[i];
+      if (room === targetRoom) {
+        room.end();
+        room.informSpectators();
+        rooms.splice(i, 1);
+        break;
+      }
+    }
+  }
+
 function ejectPlayer(socket: io.Socket) : Player | undefined {
   const userId = socketToUserId.get(socket.id);
   if (!userId) {return;}
@@ -41,7 +59,11 @@ function ejectPlayer(socket: io.Socket) : Player | undefined {
   if (roomId) {
     // Remove them from that room
     const currentRoom = rooms.get(roomId)!;
-    currentRoom.removePlayer(player, nameSpaceToRooms);
+    const shouldDeleteRoom = currentRoom.removePlayer(player);
+    if(shouldDeleteRoom) {
+      deleteRoomFromNamespace(currentRoom);
+      rooms.delete(roomId);
+    }
   }
   return player;
 }

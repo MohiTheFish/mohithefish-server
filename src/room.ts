@@ -26,15 +26,35 @@ function getPlayerNames(players: Array<Player>) {
 }
 
 export default class Room {
+  /** The unique id for the room. Genereated upon creation. */
   roomId: string;
+  /** The type of game this room is being used for. Intended use case = handling joining games from a different game type */
   roomType: string;
+  /** An array of all the players that will be in the game when host starts */
   members: Array<Player>;
+  /** The number of people present when game is started. Used to track how many people have disconnected. */
+  totalNumPlayers: number = 0;
+  /** 
+   * The list of people that join after the host has started the game. When the host returns to lobby, 
+   * these players are automatically added to the members list
+   */
   spectators: Array<Player>;
+  /**  A `roomId` to allow server to communicate with the spectators without interrupting the members */
   spectatorChannel: string;
+  /** A flag set to determine whether the game has started */
   currentlyInGame: boolean = false;
+  /** A setting common to all rooms. If it is private, the room will not be listed available and a roomId must be used.  */
   isPrivate: boolean = false;
+  /** The server this room is in. */
   server: io.Server;
 
+  /**
+   * Creates a new Room object
+   * @param roomId the room id for this room
+   * @param host the player who is creating this room
+   * @param server the server in which this room will be created.
+   * @param roomType the type of game this room will be used for
+   */
   constructor(roomId: string, host: Player, server: io.Server, roomType: string) {
     this.roomId = roomId;
     this.spectatorChannel = `${roomId}-spectator`;
@@ -45,17 +65,29 @@ export default class Room {
     this.server = server;
   }
 
+  /** Gets the first player in the list */
   get host() : Player {
     return this.members[0];
   }
-
+  
+  /**
+   * Allows hosts to update settings by providing an object listing all the new settings.
+   * @param settings Object listing all the game settings the player wants to use
+   */
   updateSettings(settings:any) {
     // Set is private eventually
   }
+  /** 
+   * Overloaded by subclasses.
+   * @returns an object containing all the settings used by the specific game type. 
+   */
   getSettings() : object {
     // prototyping for subclasses to use
     return {};
   }
+  /**
+   * @returns The list of players in the room as well as the room id.
+   */
   getRoomInfo() : LobbyRoomInfo {
     return {
       members: getPlayerNames(this.members),
@@ -63,11 +95,19 @@ export default class Room {
     };
   }
 
+  /**
+   * @todo Implement privacy switching.
+   * Currently not supported.
+   */
   togglePrivate() : boolean {
     this.isPrivate = !this.isPrivate;
     return this.isPrivate;
   }
 
+  /**
+   * Used when generating the list of available rooms. 
+   * @returns an object containing a concise list of info about this room
+   */
   getConciseRoomInfo() : ConciseRoomInfo {
     return {
       hostname: this.members[0].username,
@@ -77,6 +117,11 @@ export default class Room {
     };
   }
 
+  /**
+   * Handles all the logic for adding a player to this room
+   * 
+   * @param player The player to be added
+   */
   addPlayer(player: Player) : void {
     // If player's room id matches this room id, we are already done.
     if (player.roomId === this.roomId) {return; }
@@ -108,27 +153,7 @@ export default class Room {
     }
   }
 
-  deleteRoomFromNamespace(nameSpaceToRooms: Map<string, Room[]>) {
-    const rooms: Array<Room> = nameSpaceToRooms.get(this.roomType)!;
-    for(let i=0; i<rooms.length; i++){
-      const room = rooms[i];
-      if (room === this) {
-        room.end();
-        this.informSpectators();
-        rooms.splice(i, 1);
-        break;
-      }
-    }
-  }
-
-  deleteHost(nameSpaceToRooms: Map<string, Room[]>) {
-    const shouldDeleteRoom = this.removeHost();
-    if (shouldDeleteRoom) {
-      this.deleteRoomFromNamespace(nameSpaceToRooms);
-    }
-  }
-
-  removePlayer(player: Player, nameSpaceToRooms: Map<string, Room[]>) {
+  removePlayer(player: Player) : boolean{
     // If players are in the game, we do not want to screw around with the indexing situation of members.
     // Check if the player exists in the spectator list
     if (this.currentlyInGame) {
@@ -140,15 +165,15 @@ export default class Room {
         player.roomId = '';
         this.server.to(this.spectatorChannel).emit('spectatorLeft', index);
       }
-
-      return;
+      return false;
     }
 
-    player.socket?.leave(this.roomId);
+    let shouldDeleteRoom = false;
     let index = 0;
+    player.socket?.leave(this.roomId);
     // Delete the player from the room, and return the index of where they were in the room. 
     if(this.host === player) {
-      this.deleteHost(nameSpaceToRooms);
+      shouldDeleteRoom = this.removeHost();
     }
     else {
       index = this.members.indexOf(player);
@@ -159,6 +184,7 @@ export default class Room {
     }
     console.log('index of removed player:' + index);
     this.server.to(this.roomId).emit('playerLeft', index);
+    return shouldDeleteRoom;
   }
 
   removeHost() : boolean {
@@ -173,6 +199,7 @@ export default class Room {
 
   begin() {
     this.currentlyInGame = true;
+    this.totalNumPlayers = this.members.length;
   }
 
   end() {
@@ -182,7 +209,7 @@ export default class Room {
   returnToLobby(nameSpaceToRooms: Map<string, Room[]>) {
     this.server.to(this.roomId).emit('sentBackToLobby');
     this.addSpectatorsToLobby();
-    this.clearInactivePlayers(nameSpaceToRooms);
+    this.clearInactivePlayers();
     this.giveEachPlayerIndex(); // emits 'yourIndex'
     this.server.to(this.roomId).emit('roomReady');
   }
@@ -195,11 +222,11 @@ export default class Room {
     });
     this.spectators = [];
   }
-  clearInactivePlayers(nameSpaceToRooms: Map<string, Room[]>) {
+  clearInactivePlayers() {
     for(var i = 0; i<this.members.length; i++) {
       const player = this.members[i];
       if(player.disconnectTime > 0) { // are disconnected
-        this.removePlayer(player, nameSpaceToRooms);
+        this.removePlayer(player);
         i--;
       }
     }
