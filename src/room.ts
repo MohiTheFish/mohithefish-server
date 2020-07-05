@@ -153,17 +153,29 @@ export default class Room {
     }
   }
 
-  removePlayer(player: Player) : boolean{
+  /**
+   * Remove a player
+   * @param player the player to remove
+   */
+  removePlayer(player: Player) : boolean {
     // If players are in the game, we do not want to screw around with the indexing situation of members.
     // Check if the player exists in the spectator list
     if (this.currentlyInGame) {
-      console.log('remove spectator');
       let index = this.spectators.indexOf(player);
       if (index > -1) {
         player.socket?.leave(this.spectatorChannel);
         this.spectators.splice(index, 1);
         player.roomId = '';
         this.server.to(this.spectatorChannel).emit('spectatorLeft', index);
+      }
+      else {
+        index = this.members.indexOf(player);
+        if(index > -1) {
+          this.totalNumPlayers--;
+          if (this.totalNumPlayers === 0) {
+            return true;
+          }
+        }
       }
       return false;
     }
@@ -243,6 +255,9 @@ export default class Room {
   }
 
   informSpectators() {
-    this.server.to(this.roomId).emit('roomClosed');
+    this.server.to(this.spectatorChannel).emit('roomClosed');
+    this.spectators.forEach(player => {
+      player.socket?.leave(this.spectatorChannel);
+    });
   }
 }

@@ -14,13 +14,23 @@ const server = io.listen((process.env.PORT || 5000), {
 
 //http:localhost:5000/:game/:roomId
 
-const gameChoices = ['spyfall', 'mafia', 'war'];
+/** Supported game choices */
+const gameChoices = ['spyfall', 'mafia'];
+/** Maps a gametype to the list of rooms of that gametype */
 const nameSpaceToRooms = new Map<string, Room[]>();
+/** Maps roomId to the room itself */
 const rooms = new Map<string, Room>();
+/** Maps the user's ID to the player */
 const userIdToPlayer = new Map<string, Player>();
+/** Maps the socketId to the userId */
 const socketToUserId = new Map<string, string>();
 
-// When user requests to join a room
+/**
+ * RoomData
+ * * userId: the user trying to join
+ * * targetRoom: the roomId the user is trying to join
+ * * submittedId: (currently unused) detects whether user manually provided the roomId
+ */
 export type RoomData = {
   userId: string;
   targetRoom: string;
@@ -32,11 +42,10 @@ gameChoices.forEach(game => {
 });
 
 
-
-  /**
-   * If the host leaves and all the members have left, the room needs to be removed entirely. 
-   * @param nameSpaceToRooms The map used by the server to track which rooms are part of which game type
-   */
+/**
+ * If the host leaves and all the members have left, the room needs to be removed entirely. 
+ * @param nameSpaceToRooms The map used by the server to track which rooms are part of which game type
+ */
 function deleteRoomFromNamespace(targetRoom: Room) {
     const rooms: Array<Room> = nameSpaceToRooms.get(targetRoom.roomType)!;
     for(let i=0; i<rooms.length; i++){
