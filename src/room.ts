@@ -182,6 +182,7 @@ export default class Room {
 
     let shouldDeleteRoom = false;
     let index = 0;
+    player.roomId = '';
     player.socket?.leave(this.roomId);
     // Delete the player from the room, and return the index of where they were in the room. 
     if(this.host === player) {

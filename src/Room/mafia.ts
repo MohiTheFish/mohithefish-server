@@ -43,7 +43,10 @@ function getNumMafia(numMafia: number, numMembers: number) : number {
     return 3;
   }
   return 4;
-  
+}
+
+function getHalf(number: number) : number {
+  return Math.floor((number+1) / 2);
 }
 
 /**
@@ -97,7 +100,7 @@ function printExists(item: any, itemname: string) {
   }
 }
 
-const ABSTAIN: number  = -2;
+const ABSTAIN: number = -2;
 const UNDECIDED: number = -1;
 const RECAP_TIME: number = 3;
 
@@ -105,10 +108,11 @@ export default class MafiaRoom extends Room {
   dayTimeLimit: number = 300;
   nightTimeLimit: number = 60;
   defenseTimeLimit: number = 20;
-
   numMafia: number = 2;
   allowSK: boolean = false;
   allowJoker: boolean = false;
+
+  numAlive: number = 0;
   phase: number = 0;
   mainTimeRemaining: number = 0;
   mainInterval: NodeJS.Timeout | null = null;
@@ -116,6 +120,8 @@ export default class MafiaRoom extends Room {
   secondaryInterval: NodeJS.Timeout | null = null;
   mafiaRoomId: string;
   numAbstain: number = 0;
+  onTrial: string = '';
+  allowVotesOnTrial: boolean = false;
   isRecapPeriod: boolean = false;
 
   memberProfiles: Array<mafiaProfile> = [];
@@ -134,7 +140,7 @@ export default class MafiaRoom extends Room {
     this.dayTimeLimit = Number.parseInt(dayTimeLimit);
     this.nightTimeLimit = Number.parseInt(nightTimeLimit);
     this.defenseTimeLimit = Number.parseInt(defenseTimeLimit);
-    this.numMafia = getNumMafia(Number.parseInt(numMafia), this.members.length);
+    this.numMafia = Number.parseInt(numMafia);
     this.allowSK = allowSK;
     this.allowJoker = allowJoker;
   }
@@ -188,24 +194,26 @@ export default class MafiaRoom extends Room {
     super.begin();
 
     this.numAbstain = 0;
+    this.numAlive = this.members.length;
     this.secondaryTimeRemaining = this.defenseTimeLimit;
     this.isRecapPeriod = true;
-    const numPlayers = this.members.length;
+
     const profiles: mafiaProfile[] = [];
 
+    const targetNumMafia = getNumMafia(this.numMafia, this.members.length);
     const roles: ROLES[] = [];
-    roles.length = numPlayers;
+    roles.length = this.numAlive;
     // Put in numMafia roles
-    for(var i = 0; i<this.numMafia; i++) {
+    for(var i = 0; i<targetNumMafia; i++) {
       roles[i] = ROLES.MAFIA;
     }
 
     // Put in 1 detective and 1 medic
-    roles[this.numMafia] = ROLES.DETECTIVE;
-    roles[this.numMafia+1] = ROLES.MEDIC;
+    roles[targetNumMafia] = ROLES.DETECTIVE;
+    roles[targetNumMafia+1] = ROLES.MEDIC;
 
     // Fill in the rest with villager role
-    for(var i=this.numMafia+2; i<roles.length; i++) {
+    for(var i=targetNumMafia+2; i<roles.length; i++) {
       roles[i] = ROLES.VILLAGER;
     }
 
@@ -221,7 +229,6 @@ export default class MafiaRoom extends Room {
     // Shuffle all the roles. The new index corresponds to the players position
     shuffle(roles);
 
-
     // Intializes all the profiles
     roles.forEach((role, index) => {
       const profile = {
@@ -232,7 +239,7 @@ export default class MafiaRoom extends Room {
         votingFor: -1,
       }
       if (role === ROLES.MAFIA) {
-        if ( index < this.members.length) {
+        if (index < this.members.length) {
           const player = this.members[index];
           player.socket?.join(this.mafiaRoomId);
         }
@@ -246,10 +253,10 @@ export default class MafiaRoom extends Room {
       time: this.mainTimeRemaining,
       role: ROLES.VILLAGER,
       roleCount: {
-        mafiaCount: this.numMafia,
-        villagerCount: (roles.length-this.numMafia)
+        mafiaCount: targetNumMafia,
+        villagerCount: (roles.length-targetNumMafia)
       },
-      numPlayers,
+      numPlayers: this.numAlive,
     }
 
     this.members.forEach((member, index) => {
@@ -282,15 +289,17 @@ export default class MafiaRoom extends Room {
     this.memberProfiles = [];
   }
 
-
+  endDay() {
+    this.mainTimeRemaining = 0;
+  }
   /**
    * Stop the main sendTime function interval.
    */
   pauseMainTime() {
     if (this.mainInterval) {
+      this.server.to(this.roomId).emit('trialStarted', this.onTrial);
       clearInterval(this.mainInterval);
       this.mainInterval = null;
-
 
       this.secondaryInterval = setInterval(() => this.secondarySendTime(), 1000);
     }
@@ -315,7 +324,7 @@ export default class MafiaRoom extends Room {
    */
   sendTime() {
     // Interval calls.
-    this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining]);
+    this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining, this.isRecapPeriod]);
     this.mainTimeRemaining -= 1;
     if(this.mainTimeRemaining === -1) {
       if (this.isRecapPeriod) {
@@ -325,15 +334,15 @@ export default class MafiaRoom extends Room {
           this.mainTimeRemaining = this.nightTimeLimit;
         }
         else {
-          this.memberProfiles = this.memberProfiles.map(profile=> {
+          this.memberProfiles = this.memberProfiles.map(profile => {
             return {
               role: profile.role,
               isAlive: profile.isAlive,
               numVotes: 0,
               votingFor: -1,
               targetOfPower: '',
-            }
-          })
+            };
+          });
           this.mainTimeRemaining = this.dayTimeLimit;
         }
       }
@@ -354,9 +363,9 @@ export default class MafiaRoom extends Room {
     const myProfile = this.memberProfiles[myIndex];
 
     const oldTarget = myProfile.votingFor;
-    // Need at least half the number of players to vote for a choice.
-    const numVotesNeeded = Math.floor((this.memberProfiles.length +1) / 2);
     let message = '';
+    let checkAbstain = false;
+    let checkVotes = -1;
     // 4 cases
     // 1) myPlayer is abstaining
     // 2) myPlayer is voting for someone fresh
@@ -372,6 +381,7 @@ export default class MafiaRoom extends Room {
         this.numAbstain++;
         message = `${myPlayer.username} is choosing to abstain.`;
         myProfile.votingFor = ABSTAIN;
+        checkAbstain = true;
       }
       else { //oldTarget was player
         const oldTargetPlayer = this.members[oldTarget];
@@ -381,6 +391,7 @@ export default class MafiaRoom extends Room {
         this.numAbstain++;
         message = `${myPlayer.username} switched from voting ${oldTargetPlayer.username} to abstaining.`;
         myProfile.votingFor = ABSTAIN;
+        checkAbstain = true;
       }
     }
     else {
@@ -388,13 +399,16 @@ export default class MafiaRoom extends Room {
       const targetProfile = this.memberProfiles[targetIndex];
       if (oldTarget === ABSTAIN) {
         myProfile.votingFor = targetIndex;
+        targetProfile.numVotes++;
         this.numAbstain--;
         message = `${myPlayer.username} switched from abstaining to voting for ${targetPlayer.username}.`;
+        checkVotes = targetIndex;
       }
       else if (oldTarget === UNDECIDED) {
         myProfile.votingFor = targetIndex;
         targetProfile.numVotes++;
         message = `${myPlayer.username} is voting for ${targetPlayer.username}.`;
+        checkVotes = targetIndex;
       }
       else if(oldTarget === targetIndex) {
         myProfile.votingFor = UNDECIDED;
@@ -409,14 +423,9 @@ export default class MafiaRoom extends Room {
         myProfile.votingFor = targetIndex;
         targetProfile.numVotes++;
         message = `${myPlayer.username} switched vote from ${oldTargetPlayer.username} to ${targetPlayer.username}.`;
-      }
-
-      // Need at least half (rounded up) votes to start court.
-      if (targetProfile.numVotes >= numVotesNeeded) {
-        console.log('start court!');
+        checkVotes = targetIndex;
       }
     }
-
     const baseObj = {
       audience: AUDIENCE.EVERYONE,
       phase: this.phase,
@@ -427,8 +436,24 @@ export default class MafiaRoom extends Room {
     myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedMafia', baseObj);
     myPlayer.emit('iVotedMafia', baseObj);
 
-
-    
+    const numNeeded = getHalf(this.numAlive);
+    if(checkAbstain && this.numAbstain >= numNeeded) {
+      this.endDay();
+      this.server.to(this.roomId).emit('mafiaChatUpdated', {
+        audience: AUDIENCE.EVERYONE,
+        phase: this.phase,
+        message: `Voting abstained.`
+      });
+    }
+    if(checkVotes !== -1) {
+      const targetPlayer = this.members[targetIndex];
+      const targetProfile = this.memberProfiles[targetIndex];
+      if (targetProfile.numVotes >= numNeeded) {
+        this.onTrial = targetPlayer.username;
+        this.server.to(this.roomId).emit('beginTrial', this.onTrial);
+        this.pauseMainTime();
+      }
+    }
   }
 
   /**
