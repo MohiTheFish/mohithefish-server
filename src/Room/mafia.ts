@@ -103,8 +103,8 @@ function printExists(item: any, itemname: string) {
 
 const ABSTAIN: number = -2;
 const UNDECIDED: number = -1;
-const RECAP_TIME: number = 3;
-const VOTE_GUILTY_TIME: number = 10;
+const RECAP_TIME = 3;
+const VOTE_GUILTY_TIME = 10;
 
 export default class MafiaRoom extends Room {
   dayTimeLimit: number = 300;
@@ -250,7 +250,7 @@ export default class MafiaRoom extends Room {
       profiles.push(profile);
     });
 
-    this.mainTimeRemaining = 5; // Phase 0 will have 5 seconds.
+    this.mainTimeRemaining = 2; // Phase 0 will have 5 seconds.
     this.isRecapPeriod = true;
     const baseGameState = {
       time: this.mainTimeRemaining,
@@ -318,7 +318,7 @@ export default class MafiaRoom extends Room {
    * Sends the secondary time (court duration) to all the players.
    */
   secondarySendTime() {
-    console.log('send secondary time');
+    console.log('secondaryTime:' +this.secondaryTimeRemaining);
     // Interval calls.
     this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining, this.isDefending]);
     this.secondaryTimeRemaining -= 1;
@@ -358,6 +358,7 @@ export default class MafiaRoom extends Room {
         message = `${myPlayer.username} is no longer voting.`;
       }
       else { //if(decision[0] === 'n')
+        myProfile.guiltyDecision = decision;
         message = `${myPlayer.username} switched from Guilty to Not Guilty.`;
       }
     }
@@ -367,6 +368,7 @@ export default class MafiaRoom extends Room {
         message = `${myPlayer.username} is no longer voting.`;
       }
       else { //if(decision[0] === 'g')
+        myProfile.guiltyDecision = decision;
         message = `${myPlayer.username} switched from Not Guilty to Guilty.`;
       }
     }
@@ -375,7 +377,7 @@ export default class MafiaRoom extends Room {
       audience: AUDIENCE.EVERYONE,
       phase: this.phase,
       message,
-      newDecision: decision,
+      newDecision: myProfile.guiltyDecision,
       oldDecision: oldDecision,
     };
     myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedGuiltyDecision', baseObj);
@@ -525,6 +527,7 @@ export default class MafiaRoom extends Room {
       if (targetProfile.numVotes >= numNeeded) {
         this.onTrial = targetPlayer.username;
         this.server.to(this.roomId).emit('beginTrial', this.onTrial);
+        this.isDefending = true;
         this.pauseMainTime();
       }
     }
