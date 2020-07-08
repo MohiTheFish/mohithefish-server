@@ -27,6 +27,7 @@ type mafiaProfile = {
   numVotes: number,
   votingFor: number,
   targetOfPower: string,
+  guiltyDecision: string,
 };
 
 function getNumMafia(numMafia: number, numMembers: number) : number {
@@ -103,6 +104,7 @@ function printExists(item: any, itemname: string) {
 const ABSTAIN: number = -2;
 const UNDECIDED: number = -1;
 const RECAP_TIME: number = 3;
+const VOTE_GUILTY_TIME: number = 10;
 
 export default class MafiaRoom extends Room {
   dayTimeLimit: number = 300;
@@ -121,7 +123,7 @@ export default class MafiaRoom extends Room {
   mafiaRoomId: string;
   numAbstain: number = 0;
   onTrial: string = '';
-  allowVotesOnTrial: boolean = false;
+  isDefending: boolean = false;
   isRecapPeriod: boolean = false;
 
   memberProfiles: Array<mafiaProfile> = [];
@@ -237,6 +239,7 @@ export default class MafiaRoom extends Room {
         numVotes: 0,
         targetOfPower: "",
         votingFor: -1,
+        guiltyDecision: '',
       }
       if (role === ROLES.MAFIA) {
         if (index < this.members.length) {
@@ -290,33 +293,93 @@ export default class MafiaRoom extends Room {
   }
 
   endDay() {
+    console.log('end day');
     this.mainTimeRemaining = 0;
+    if(!this.mainInterval) {
+      console.log(this.mainTimeRemaining);
+      this.mainInterval = setInterval(() => this.sendTime(), 1000);
+    }
   }
   /**
    * Stop the main sendTime function interval.
    */
   pauseMainTime() {
     if (this.mainInterval) {
-      this.server.to(this.roomId).emit('trialStarted', this.onTrial);
       clearInterval(this.mainInterval);
       this.mainInterval = null;
-
-      this.secondaryInterval = setInterval(() => this.secondarySendTime(), 1000);
     }
+    this.server.to(this.roomId).emit('trialStarted', this.onTrial);
+    this.secondaryTimeRemaining = this.defenseTimeLimit;
+    this.isDefending = true;
+    this.secondaryInterval = setInterval(() => this.secondarySendTime(), 1000);
   }
 
   /**
    * Sends the secondary time (court duration) to all the players.
    */
   secondarySendTime() {
+    console.log('send secondary time');
     // Interval calls.
-    this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining]);
+    this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining, this.isDefending]);
     this.secondaryTimeRemaining -= 1;
     if(this.secondaryTimeRemaining === -1) {
-      if(this.secondaryInterval) {
-        clearInterval(this.secondaryInterval);
+      if(this.isDefending) {
+        this.secondaryTimeRemaining = VOTE_GUILTY_TIME;
+        this.isDefending = false;
+      }
+      else {
+        if(this.secondaryInterval) {
+          clearInterval(this.secondaryInterval);
+        }
+        
+
       }
     }
+  }
+
+  voteGuilty(myIndex: number, decision: string) {
+    const myPlayer = this.members[myIndex];
+    const myProfile = this.memberProfiles[myIndex];
+    const oldDecision = myProfile.guiltyDecision;
+
+    let message = '';
+    if (oldDecision === '') {
+      myProfile.guiltyDecision = decision;
+      if (decision[0] === 'g') {
+        message = `${myPlayer.username} voted Guilty.`;
+      }
+      else { //if(decision[0] === 'n')
+        message = `${myPlayer.username} voted Not Guilty.`;
+      }
+    }
+    else if (oldDecision[0] === 'g') {
+      if(decision[0] === 'g') {
+        myProfile.guiltyDecision = '';
+        message = `${myPlayer.username} is no longer voting.`;
+      }
+      else { //if(decision[0] === 'n')
+        message = `${myPlayer.username} switched from Guilty to Not Guilty.`;
+      }
+    }
+    else if (oldDecision[0] === 'n') {
+      if(decision[0] === 'n') {
+        myProfile.guiltyDecision = '';
+        message = `${myPlayer.username} is no longer voting.`;
+      }
+      else { //if(decision[0] === 'g')
+        message = `${myPlayer.username} switched from Not Guilty to Guilty.`;
+      }
+    }
+
+    const baseObj = {
+      audience: AUDIENCE.EVERYONE,
+      phase: this.phase,
+      message,
+      newDecision: decision,
+      oldDecision: oldDecision,
+    };
+    myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedGuiltyDecision', baseObj);
+    myPlayer.emit('iVotedGuiltyDecision', baseObj);
   }
 
   /**
@@ -326,14 +389,24 @@ export default class MafiaRoom extends Room {
     // Interval calls.
     this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining, this.isRecapPeriod]);
     this.mainTimeRemaining -= 1;
+    console.log(this.mainTimeRemaining);
     if(this.mainTimeRemaining === -1) {
       if (this.isRecapPeriod) {
         this.isRecapPeriod = false;
         this.phase++;
-        if (this.phase % 2 === 1) {
+        if (this.phase % 2 === 1) { // is night
           this.mainTimeRemaining = this.nightTimeLimit;
         }
-        else {
+        else { // is day
+          if (this.dayTimeLimit < 0) {
+            if (this.mainInterval) {
+              clearInterval(this.mainInterval);
+              this.mainInterval = null;
+              setTimeout(() => {
+                this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, 0, this.isRecapPeriod]);
+              }, 1000);
+            }
+          }
           this.memberProfiles = this.memberProfiles.map(profile => {
             return {
               role: profile.role,
@@ -341,6 +414,7 @@ export default class MafiaRoom extends Room {
               numVotes: 0,
               votingFor: -1,
               targetOfPower: '',
+              guiltyDecision: '',
             };
           });
           this.mainTimeRemaining = this.dayTimeLimit;
