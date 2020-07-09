@@ -114,7 +114,7 @@ export default class MafiaRoom extends Room {
   allowSK: boolean = false;
   allowJoker: boolean = false;
 
-  numAlive: number = 0;
+  alive: Array<number> = [];
   phase: number = 0;
   mainTimeRemaining: number = 0;
   mainInterval: NodeJS.Timeout | null = null;
@@ -122,12 +122,20 @@ export default class MafiaRoom extends Room {
   secondaryInterval: NodeJS.Timeout | null = null;
   mafiaRoomId: string;
   numAbstain: number = 0;
-  onTrial: string = '';
+  onTrial: number = 0;
   isDefending: boolean = false;
   isRecapPeriod: boolean = false;
 
   memberProfiles: Array<mafiaProfile> = [];
 
+
+  get numAlive() : number {
+    let num = 0;
+    this.alive.forEach(val => {
+      num += val;
+    })
+    return num;
+  }
   setMafiaSettings(mafiaSettings: any) {
     const {
       dayTimeLimit, 
@@ -145,6 +153,9 @@ export default class MafiaRoom extends Room {
     this.numMafia = Number.parseInt(numMafia);
     this.allowSK = allowSK;
     this.allowJoker = allowJoker;
+    for(let i=0; i<ROLES.NUM_ROLES; i++) {
+      this.alive.push(0);
+    }
   }
 
   constructor(roomId: string, host: Player, server: io.Server, settings: any) {
@@ -196,15 +207,14 @@ export default class MafiaRoom extends Room {
     super.begin();
 
     this.numAbstain = 0;
-    this.numAlive = this.members.length;
     this.secondaryTimeRemaining = this.defenseTimeLimit;
     this.isRecapPeriod = true;
 
-    const profiles: mafiaProfile[] = [];
-
     const targetNumMafia = getNumMafia(this.numMafia, this.members.length);
+    this.alive[ROLES.MAFIA] = targetNumMafia;
+
     const roles: ROLES[] = [];
-    roles.length = this.numAlive;
+    roles.length = this.members.length;
     // Put in numMafia roles
     for(var i = 0; i<targetNumMafia; i++) {
       roles[i] = ROLES.MAFIA;
@@ -213,24 +223,31 @@ export default class MafiaRoom extends Room {
     // Put in 1 detective and 1 medic
     roles[targetNumMafia] = ROLES.DETECTIVE;
     roles[targetNumMafia+1] = ROLES.MEDIC;
+    this.alive[ROLES.DETECTIVE] = 1;
+    this.alive[ROLES.MEDIC] = 1;
+
 
     // Fill in the rest with villager role
     for(var i=targetNumMafia+2; i<roles.length; i++) {
       roles[i] = ROLES.VILLAGER;
+      this.alive[ROLES.VILLAGER]++;
     }
 
     // If we are using a SK, just put him in the last location
     if (this.allowSK) {
       roles[roles.length-1] = ROLES.SK;
+      this.alive[ROLES.SK] = 1;
     }
     // If we are using joker put him in second to last location.
     if (this.allowJoker) {
       roles[roles.length-2] = ROLES.JOKER;
+      this.alive[ROLES.JOKER] = 1;
     }
     
     // Shuffle all the roles. The new index corresponds to the players position
     shuffle(roles);
 
+    const profiles: mafiaProfile[] = [];
     // Intializes all the profiles
     roles.forEach((role, index) => {
       const profile = {
@@ -250,7 +267,7 @@ export default class MafiaRoom extends Room {
       profiles.push(profile);
     });
 
-    this.mainTimeRemaining = 2; // Phase 0 will have 5 seconds.
+    this.mainTimeRemaining = 1; // Phase 0 will have 5 seconds.
     this.isRecapPeriod = true;
     const baseGameState = {
       time: this.mainTimeRemaining,
@@ -296,7 +313,6 @@ export default class MafiaRoom extends Room {
     console.log('end day');
     this.mainTimeRemaining = 0;
     if(!this.mainInterval) {
-      console.log(this.mainTimeRemaining);
       this.mainInterval = setInterval(() => this.sendTime(), 1000);
     }
   }
@@ -308,17 +324,22 @@ export default class MafiaRoom extends Room {
       clearInterval(this.mainInterval);
       this.mainInterval = null;
     }
-    this.server.to(this.roomId).emit('trialStarted', this.onTrial);
-    this.secondaryTimeRemaining = this.defenseTimeLimit;
-    this.isDefending = true;
     this.secondaryInterval = setInterval(() => this.secondarySendTime(), 1000);
+  }
+
+  resumeMainTime() {
+    if (this.secondaryInterval) {
+      clearInterval(this.secondaryInterval);
+      this.secondaryInterval = null;
+    }
+    this.mainInterval = setInterval(() => this.sendTime(), 1000);
   }
 
   /**
    * Sends the secondary time (court duration) to all the players.
    */
   secondarySendTime() {
-    console.log('secondaryTime:' +this.secondaryTimeRemaining);
+    // console.log('secondaryTime:' +this.secondaryTimeRemaining);
     // Interval calls.
     this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining, this.isDefending]);
     this.secondaryTimeRemaining -= 1;
@@ -331,12 +352,69 @@ export default class MafiaRoom extends Room {
         if(this.secondaryInterval) {
           clearInterval(this.secondaryInterval);
         }
-        
-
+        this.sendCourtResult();
       }
     }
   }
 
+
+  sendCourtResult() {
+    let numGuiltyVotes = 0;
+    let numNotGuiltyVotes = 0; 
+
+    this.memberProfiles.forEach(profile => {
+      if(profile.guiltyDecision !== '') {
+        if(profile.guiltyDecision[0] === 'g') {
+          numGuiltyVotes++;
+        }
+        else {
+          numNotGuiltyVotes++;
+        }
+      }
+    });
+
+    const trialPlayer = this.members[this.onTrial];
+    const trialProfile = this.memberProfiles[this.onTrial];
+    let endDay = true;
+    let message = '';
+    console.log('numGuiltyVotes:' + numGuiltyVotes);
+    console.log('numNotGuiltyVotes:' + numNotGuiltyVotes);
+    if (numGuiltyVotes > numNotGuiltyVotes) {
+      trialProfile.isAlive = false;
+      this.alive[trialProfile.role]--;
+      message = `${trialPlayer.username} was voted to be killed!`;
+    }
+    else {
+      message = `${trialPlayer.username} was spared!`;
+    }
+    this.server.to(this.roomId).emit('courtResult', {
+      message,
+      audience: AUDIENCE.EVERYONE,
+      phase: this.phase,
+      isAlive: trialProfile.isAlive,
+      killedIndex: this.onTrial,
+    });
+    // if (playerKilled)
+    if (!trialProfile.isAlive) {
+      this.endDay();
+    }
+    else {
+      this.clearVotes();
+      this.resumeMainTime();
+    }
+  }
+
+  clearVotes() {
+    this.memberProfiles.forEach(profile => {
+      console.log(profile);
+      profile.guiltyDecision = '';
+      if (profile.votingFor === this.onTrial) {
+        profile.votingFor = -1;
+      }
+    });
+    this.onTrial = -1;
+  }
+  
   voteGuilty(myIndex: number, decision: string) {
     const myPlayer = this.members[myIndex];
     const myProfile = this.memberProfiles[myIndex];
@@ -391,7 +469,6 @@ export default class MafiaRoom extends Room {
     // Interval calls.
     this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining, this.isRecapPeriod]);
     this.mainTimeRemaining -= 1;
-    console.log(this.mainTimeRemaining);
     if(this.mainTimeRemaining === -1) {
       if (this.isRecapPeriod) {
         this.isRecapPeriod = false;
@@ -512,7 +589,7 @@ export default class MafiaRoom extends Room {
     myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedMafia', baseObj);
     myPlayer.emit('iVotedMafia', baseObj);
 
-    const numNeeded = getHalf(this.numAlive);
+    const numNeeded = 1; // getHalf(this.numAlive);
     if(checkAbstain && this.numAbstain >= numNeeded) {
       this.endDay();
       this.server.to(this.roomId).emit('mafiaChatUpdated', {
@@ -522,11 +599,19 @@ export default class MafiaRoom extends Room {
       });
     }
     if(checkVotes !== -1) {
-      const targetPlayer = this.members[targetIndex];
+      console.log('numNeeded:' + numNeeded);
+      const targetPlayerName = this.members[targetIndex].username;
       const targetProfile = this.memberProfiles[targetIndex];
       if (targetProfile.numVotes >= numNeeded) {
-        this.onTrial = targetPlayer.username;
-        this.server.to(this.roomId).emit('beginTrial', this.onTrial);
+        this.onTrial = targetIndex;
+        const baseObj = {
+          audience: AUDIENCE.EVERYONE,
+          phase: this.phase,
+          name: targetPlayerName,
+          onTrial: this.onTrial,
+        };
+        this.server.to(this.roomId).emit('beginTrial', baseObj);
+        this.secondaryTimeRemaining = this.defenseTimeLimit;
         this.isDefending = true;
         this.pauseMainTime();
       }
