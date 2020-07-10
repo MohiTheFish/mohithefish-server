@@ -267,7 +267,7 @@ export default class MafiaRoom extends Room {
       profiles.push(profile);
     });
 
-    this.mainTimeRemaining = 1; // Phase 0 will have 5 seconds.
+    this.mainTimeRemaining = 5; // Phase 0 will have 5 seconds.
     this.isRecapPeriod = true;
     const baseGameState = {
       time: this.mainTimeRemaining,
@@ -289,7 +289,7 @@ export default class MafiaRoom extends Room {
     this.memberProfiles = profiles;
 
     // Create a repeating interval. This server will synchronize the clocks for all clients.
-    this.mainInterval = setInterval(() => this.sendTime(), 1000); 
+    this.beginMainTime();
   }
 
   /**
@@ -324,7 +324,13 @@ export default class MafiaRoom extends Room {
       clearInterval(this.mainInterval);
       this.mainInterval = null;
     }
+    this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining, this.isDefending]);
     this.secondaryInterval = setInterval(() => this.secondarySendTime(), 1000);
+  }
+
+  beginMainTime() {
+    this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining, this.isRecapPeriod]);
+    this.mainInterval = setInterval(() => this.sendTime(), 1000);
   }
 
   resumeMainTime() {
@@ -332,7 +338,7 @@ export default class MafiaRoom extends Room {
       clearInterval(this.secondaryInterval);
       this.secondaryInterval = null;
     }
-    this.mainInterval = setInterval(() => this.sendTime(), 1000);
+    this.beginMainTime();
   }
 
   /**
@@ -341,7 +347,6 @@ export default class MafiaRoom extends Room {
   secondarySendTime() {
     // console.log('secondaryTime:' +this.secondaryTimeRemaining);
     // Interval calls.
-    this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining, this.isDefending]);
     this.secondaryTimeRemaining -= 1;
     if(this.secondaryTimeRemaining === -1) {
       if(this.isDefending) {
@@ -355,6 +360,7 @@ export default class MafiaRoom extends Room {
         this.sendCourtResult();
       }
     }
+    this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining, this.isDefending]);
   }
 
 
@@ -406,7 +412,6 @@ export default class MafiaRoom extends Room {
 
   clearVotes() {
     this.memberProfiles.forEach(profile => {
-      console.log(profile);
       profile.guiltyDecision = '';
       if (profile.votingFor === this.onTrial) {
         profile.votingFor = -1;
@@ -467,7 +472,6 @@ export default class MafiaRoom extends Room {
    */
   sendTime() {
     // Interval calls.
-    this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining, this.isRecapPeriod]);
     this.mainTimeRemaining -= 1;
     if(this.mainTimeRemaining === -1) {
       if (this.isRecapPeriod) {
@@ -504,6 +508,7 @@ export default class MafiaRoom extends Room {
         this.mainTimeRemaining = RECAP_TIME;
       }
     }
+    this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining, this.isRecapPeriod]);
   }
 
   /**
