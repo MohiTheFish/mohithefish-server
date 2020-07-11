@@ -6,10 +6,12 @@ import Room, {ConciseRoomInfo} from './room';
 import SpyfallRoom from './Room/spyfall';
 import MafiaRoom from "./Room/mafia";
 
-var allowedOrigins = "http://mohithefish.github.io/:* http://mohithefish.github.io:*";
+var allowedOrigins = "*:*";
+if (process.env.PORT) {
+  allowedOrigins = "http://mohithefish.github.io/:* http://mohithefish.github.io:*";
+}
 const server = io.listen((process.env.PORT || 5000), {
-  origins: "*:*"
-  // origins: allowedOrigins
+  origins: allowedOrigins
 });
 
 //http:localhost:5000/:game/:roomId
