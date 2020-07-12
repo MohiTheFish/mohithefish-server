@@ -773,7 +773,7 @@ export default class MafiaRoom extends Room {
     myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedMafia', baseObj);
     myPlayer.emit('iVotedMafia', baseObj);
 
-    const numNeeded = 1; // getHalf(this.numAlive);
+    const numNeeded = getHalf(this.numAlive);
     if(checkAbstain && this.numAbstain >= numNeeded) {
       this.endDay();
       this.server.to(this.roomId).emit('mafiaChatUpdated', {
