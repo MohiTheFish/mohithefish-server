@@ -127,8 +127,6 @@ export default class Room {
     if (player.roomId === this.roomId) {return; }
     player.roomId = this.roomId;
     if (this.currentlyInGame) {
-      console.log(`Adding Spectator: [${player.username}]`);
-
       this.spectators.push(player);
       const roomInfo = this.getRoomInfo();
       roomInfo.spectators = getPlayerNames(this.spectators);
@@ -195,7 +193,6 @@ export default class Room {
       }
       player.roomId = "";
     }
-    console.log('index of removed player:' + index);
     this.server.to(this.roomId).emit('playerLeft', index);
     return shouldDeleteRoom;
   }
