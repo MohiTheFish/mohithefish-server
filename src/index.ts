@@ -254,4 +254,11 @@ server.on("connection", (socket: Socket) => {
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));
     room.voteGuilty(myIndex, decision);
   });
+
+  socket.on('interactMafia', function({userId, myIndex, targetIndex}) {
+    const player = userIdToPlayer.get(userId)!;
+    const room = (<MafiaRoom> (rooms.get(player.roomId)!));
+    room.trackInteractionRequest(myIndex, targetIndex);
+  });
+
 });
