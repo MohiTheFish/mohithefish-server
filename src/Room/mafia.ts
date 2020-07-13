@@ -249,8 +249,10 @@ export default class MafiaRoom extends Room {
 
     this.isPrivate = isPrivate;
     this.mafiaRoomId = uuid();
-
     this.setMafiaSettings(mafia);
+    for(let i=0; i<ROLES.NUM_ROLES; i++) {
+      this.alive.push(0);
+    }
   }
 
   updateSettings(settings: any) : any {
@@ -287,10 +289,6 @@ export default class MafiaRoom extends Room {
    */
   begin() : any {
     super.begin();
-    this.alive = []
-    for(let i=0; i<ROLES.NUM_ROLES; i++) {
-      this.alive.push(0);
-    }
 
     this.numAbstain = 0;
     this.secondaryTimeRemaining = this.defenseTimeLimit;
@@ -405,7 +403,9 @@ export default class MafiaRoom extends Room {
     this.phase = 0;
     this.memberProfiles = [];
     this.playerRoles = [];
-    this.alive = [];
+    for(let i=0; i<ROLES.NUM_ROLES; i++) {
+      this.alive[i] = 0;
+    }
   }
 
   endDay() {
