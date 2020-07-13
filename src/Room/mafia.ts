@@ -297,7 +297,7 @@ export default class MafiaRoom extends Room {
     const targetNumMafia = getNumMafia(this.numMafia, this.members.length);
     this.alive[ROLES.MAFIA] = targetNumMafia;
 
-    const roles: ROLES[] = [];
+    let roles: ROLES[] = [];
     roles.length = this.members.length;
     // Put in numMafia roles
     for(var i = 0; i<targetNumMafia; i++) {
@@ -330,12 +330,13 @@ export default class MafiaRoom extends Room {
     
     // Shuffle all the roles. The new index corresponds to the players position
     shuffle(roles);
+    roles = [ROLES.DETECTIVE, ROLES.VILLAGER, ROLES.MAFIA, ROLES.MEDIC];
 
     const profiles: mafiaProfile[] = [];
     // Intializes all the profiles
     roles.forEach((role, index) => {
       const profile = {
-        role: role,
+        role,
         isAlive: true,
         numVotes: 0,
         targetOfPower: -1,
@@ -345,6 +346,7 @@ export default class MafiaRoom extends Room {
       if (role === ROLES.MAFIA) {
         if (index < this.members.length) {
           const player = this.members[index];
+          console.log(`${player.username} joined mafia room`);
           player.socket?.join(this.mafiaRoomId);
         }
       }
@@ -400,6 +402,14 @@ export default class MafiaRoom extends Room {
       clearInterval(this.secondaryInterval);
       this.secondaryInterval = null;
     }
+    
+    // Remove players from mafia channel
+    this.members.forEach((player,index) => {
+      const profile = this.memberProfiles[index];
+      if (profile.role === ROLES.MAFIA || profile.role === ROLES.GODFATHER) {
+        player.socket?.leave(this.mafiaRoomId);
+      }
+    })
     this.phase = 0;
     this.memberProfiles = [];
     this.playerRoles = [];
