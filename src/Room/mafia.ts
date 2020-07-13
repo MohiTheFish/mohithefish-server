@@ -84,7 +84,7 @@ function getNumMafia(numMafia: number, numMembers: number) : number {
 }
 
 function getHalf(number: number) : number {
-  return Math.floor((number+1) / 2);
+  return Math.floor((number) / 2) + 1;
 }
 
 /**
@@ -238,9 +238,6 @@ export default class MafiaRoom extends Room {
     this.numMafia = Number.parseInt(numMafia);
     this.allowSK = allowSK;
     this.allowJoker = allowJoker;
-    for(let i=0; i<ROLES.NUM_ROLES; i++) {
-      this.alive.push(0);
-    }
   }
 
   constructor(roomId: string, host: Player, server: io.Server, settings: any) {
@@ -290,6 +287,10 @@ export default class MafiaRoom extends Room {
    */
   begin() : any {
     super.begin();
+    this.alive = []
+    for(let i=0; i<ROLES.NUM_ROLES; i++) {
+      this.alive.push(0);
+    }
 
     this.numAbstain = 0;
     this.secondaryTimeRemaining = this.defenseTimeLimit;
@@ -403,10 +404,14 @@ export default class MafiaRoom extends Room {
     }
     this.phase = 0;
     this.memberProfiles = [];
+    this.playerRoles = [];
+    this.alive = [];
   }
 
   endDay() {
     this.mainTimeRemaining = 0;
+    //force the recap period to be shown to hopefully prevent starting a trial *fingers crossed*
+    this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, RECAP_TIME, true]);
     if(!this.mainInterval) {
       this.mainInterval = setInterval(() => this.sendTime(), 1000);
     }
@@ -495,7 +500,7 @@ export default class MafiaRoom extends Room {
   }
 
   checkGameOver() {
-    console.log('numAlive:' + this.numAlive);
+    // console.log(`Phase:[${this.phase}] -- NumAlive:[${this.numAlive}]`);
     let winners: Set<ROLES> = new Set();
     if (this.numAliveVillagers === 0) {
       this.isGameOver = true;
@@ -513,9 +518,33 @@ export default class MafiaRoom extends Room {
       this.isGameOver = true;
       if (this.mainInterval) {clearInterval(this.mainInterval);}
       if (this.secondaryInterval) {clearInterval(this.secondaryInterval);}
-      // this.memberProfiles.forEach((profile, index) => {
-      //   profile.role
-      // })
+
+      // Retrieve all the winners in the first pass
+      const winnerPlayers: number[] = [];
+      this.memberProfiles.forEach((profile, index) => {
+        if (winners.has(profile.role)) {
+          winnerPlayers.push(index);
+        }
+      });
+
+      const obj = {
+        audience: AUDIENCE.NOBODY,
+        message: 'You have won!',
+        phase: this.phase,
+        winners: winnerPlayers,
+        playerRoles: this.playerRoles,
+      }
+      // Inform all the winners in the second pass.
+      this.memberProfiles.forEach((profile, index) => {
+        const player = this.members[index];
+        if (winners.has(profile.role)) {
+          obj.message = 'You have won!';
+        }
+        else {
+          obj.message = 'You have lost. Better luck next time!';
+        }
+        player.emit('gameOver', obj);
+      })
     }
   }
   killIndex(index: number) {
@@ -538,7 +567,6 @@ export default class MafiaRoom extends Room {
   }
 
   killRandomVillager() {
-    console.log('kill random villager');
     const options: number[] = [];
 
     this.memberProfiles.forEach((profile, index) => {
@@ -559,7 +587,7 @@ export default class MafiaRoom extends Room {
       if (profile.role === ROLES.DETECTIVE) {
         detectiveTarget = profile.targetOfPower;
         if (detectiveTarget> -1) {
-          detectiveTargetRole = this.memberProfiles[0].role;
+          detectiveTargetRole = this.memberProfiles[detectiveTarget].role;
         }
       }
       else if (profile.role === ROLES.MEDIC) {
@@ -696,6 +724,7 @@ export default class MafiaRoom extends Room {
     }
     trialPlayer.emit('courtResult', obj);
     // if (playerKilled)
+    trialProfile.numVotes = 0;
     if (!trialProfile.isAlive) {
       this.endDay();
     }
@@ -807,6 +836,7 @@ export default class MafiaRoom extends Room {
         this.mainTimeRemaining = RECAP_TIME;
         if (this.phase %2 === 1) { //is recapping night
           emitIndividualNightResults = true;
+          this.numAbstain = 0;
         }
         else { //is recapping day
           if (this.prevNumAlive === this.numAlive) {
@@ -830,6 +860,7 @@ export default class MafiaRoom extends Room {
     }
     else if(emitPublicNightResults) {
       this.emitPublicInteractionResults();
+      this.checkGameOver();
     }
   }
 
@@ -916,7 +947,8 @@ export default class MafiaRoom extends Room {
     myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedMafia', baseObj);
     myPlayer.emit('iVotedMafia', baseObj);
 
-    const numNeeded = 1; // getHalf(this.numAlive);
+    const numNeeded = getHalf(this.numAlive);
+    
     if(checkAbstain && this.numAbstain >= numNeeded) {
       this.endDay();
       this.server.to(this.roomId).emit('mafiaChatUpdated', {
@@ -926,7 +958,6 @@ export default class MafiaRoom extends Room {
       });
     }
     if(checkVotes !== -1) {
-      console.log('numNeeded:' + numNeeded);
       const targetPlayerName = this.members[targetIndex].username;
       const targetProfile = this.memberProfiles[targetIndex];
       if (targetProfile.numVotes >= numNeeded) {
