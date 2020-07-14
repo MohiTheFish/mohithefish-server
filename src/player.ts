@@ -1,5 +1,5 @@
 import io from 'socket.io';
-import {getRandomInt} from './lib';
+import {getRandomInt} from './util';
 
 const randomNameOptions = [
   'Helix',

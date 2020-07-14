@@ -1,6 +1,6 @@
 import Room, {GAMESTARTED} from '../room';
 import Player from '../player';
-import {getRandomInt} from '../lib'
+import {getRandomInt} from '../util'
 
 import io from 'socket.io';
 

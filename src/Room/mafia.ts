@@ -1,6 +1,6 @@
 import Room, {GAMESTARTED} from '../room';
 import Player from '../player';
-import {getRandomInt, getHalf, shuffle} from '../lib';
+import {getRandomInt, getHalf, shuffle} from '../util';
 import { v4 as uuid } from 'uuid';
 import io from 'socket.io';
 
