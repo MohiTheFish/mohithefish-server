@@ -216,7 +216,7 @@ server.on("connection", (socket: Socket) => {
     const roomId = player.roomId;
     const room = (rooms.get(roomId)!);
     room.end();
-    room.returnToLobby(nameSpaceToRooms);
+    room.returnToLobby();
   });
 
   // socket.on("forceDisconnect", function(){
@@ -236,7 +236,7 @@ server.on("connection", (socket: Socket) => {
     }
   });
 
-
+  // All these mafia events maaaaan
   socket.on('sendMafiaMessage', function({userId, index, message}) {
     const player = userIdToPlayer.get(userId)!;
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));

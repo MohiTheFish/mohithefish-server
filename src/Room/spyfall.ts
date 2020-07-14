@@ -1,5 +1,6 @@
 import Room, {GAMESTARTED} from '../room';
-import Player, {getRandomInt} from '../player';
+import Player from '../player';
+import {getRandomInt} from '../lib'
 
 import io from 'socket.io';
 
@@ -121,32 +122,42 @@ function getList(gameType: string) : string[] {
 
 
 export default class SpyfallRoom extends Room {
-  maxTime: string;
+  /** Max time for spyfall, maintained in string format */
+  maxTime: string = '';
+  /** Used for clock in spyfall */
   timeRemaining: number = 0;
+  /** Index of player that is spy */
   spyIndex: number = 0;
+  /** Interval of sending time */
   roomInterval: any;
+  /** Food, Locations, Animals, */
   gameType: string = "";
+
+  setSpyfallSettings(spyfallSettings: any) {
+    const {
+      time, 
+      gameType,
+    } = spyfallSettings;
+    this.maxTime = time;
+    this.gameType = gameType;
+  }
 
   constructor(roomId: string, host: Player, server: io.Server, settings: any) {
     super(roomId, host, server, 'spyfall');
     
-    const { isPrivate, spyfall: {time, gameType}} = settings;
-    this.maxTime = time;
-    this.gameType = gameType;
+    const { isPrivate, spyfall} = settings;
+    this.setSpyfallSettings(spyfall);
     this.isPrivate = isPrivate;
   }
 
   updateSettings(settings: any) : any {
-    const { spyfall: {time, gameType} } = settings;
-    this.maxTime = time;
-    this.gameType = gameType;
+    const { spyfall } = settings;
+    
+    this.setSpyfallSettings(spyfall);
 
     return {
       isPrivate: this.isPrivate,
-      spyfall: {
-        time: time,
-        gameType: gameType,
-      }
+      spyfall,
     };
   }
 

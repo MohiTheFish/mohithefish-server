@@ -207,16 +207,25 @@ export default class Room {
     return false;
   }
 
+  /**
+   * Extended by subclasses
+   */
   begin() {
     this.currentlyInGame = true;
     this.totalNumPlayers = this.members.length;
   }
 
+  /**
+   * Extended by subclasses
+   */
   end() {
     this.currentlyInGame = false;
   }
 
-  returnToLobby(nameSpaceToRooms: Map<string, Room[]>) {
+  /**
+   * Handles returning players to lobby
+   */
+  returnToLobby() {
     this.server.to(this.roomId).emit('sentBackToLobby');
     this.addSpectatorsToLobby();
     this.clearInactivePlayers();
@@ -224,6 +233,9 @@ export default class Room {
     this.server.to(this.roomId).emit('roomReady');
   }
 
+  /**
+   * To prevent players' indices from changing, we add new players to a different pool of players
+   */
   addSpectatorsToLobby() {
     this.spectators.forEach(player => {
       player.socket?.leave(this.spectatorChannel);
@@ -232,6 +244,9 @@ export default class Room {
     });
     this.spectators = [];
   }
+  /**
+   * We want to remove the players who have disconnected
+   */
   clearInactivePlayers() {
     for(var i = 0; i<this.members.length; i++) {
       const player = this.members[i];
@@ -242,6 +257,9 @@ export default class Room {
     }
   }
 
+  /**
+   * Forcefully provide each player their index
+   */
   giveEachPlayerIndex() {
     const members = getPlayerNames(this.members);
     this.members.forEach( (member, index) => {
@@ -252,6 +270,9 @@ export default class Room {
     })
   }
 
+  /**
+   * Inform spectators all players in the lobby left before returning to lobby
+   */
   informSpectators() {
     this.server.to(this.spectatorChannel).emit('roomClosed');
     this.spectators.forEach(player => {
