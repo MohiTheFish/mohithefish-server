@@ -193,20 +193,33 @@ export default class MafiaRoom extends Room {
   mainTimeRemaining: number = 0;
   /** Interval used to control the main clock. */
   mainInterval: NodeJS.Timeout | null = null;
+  /** The clock used inside of the court component in mafia. Set via defenseTimeLimit and VOTE_GUILTY_TIME constant */
   secondaryTimeRemaining: number = 0;
+  /** Interval used to control the secondary clock */
   secondaryInterval: NodeJS.Timeout | null = null;
+  /** Separate channel from the main room id to allow mafia to communicate with one another */
   mafiaRoomId: string;
+  /** The number of players that have abstained thus far. Set to 0 every night. */
   numAbstain: number = 0;
+  /** The index of the player on trial */
   onTrial: number = 0;
+  /** Keeps track of whether players are allowed to vote, or if player on trial isDefending */
   isDefending: boolean = false;
+  /** List of events that occurred at night that are then relayed to the public. */
   nightRecap: any[] = [];
-
+  /** The profiles corresponding to each player. */
   memberProfiles: Array<mafiaProfile> = [];
+  /** A list of roles. Each index in playerRoles matches the memberProfiles roles. Maintained for runtime efficiency. */
   playerRoles: ROLES[] = [];
+  /** A boolean to check if game is over. 
+   * @todo use to prevent further actions */
   isGameOver: boolean = false;
+  /** After 3 consecutive days without a death, kill a random villager */
   numConsecutiveDaysWithoutDeath: number = 0;
+  /** The previous number of alive players */
   prevNumAlive: number = 0;
 
+  /** @return The number of players that are alive right now */
   get numAlive() : number {
     let num = 0;
     this.alive.forEach(val => {
@@ -214,13 +227,19 @@ export default class MafiaRoom extends Room {
     })
     return num;
   }
+  /** @return The number of alive Villagers right now */
   get numAliveVillagers() : number {
     return this.alive[ROLES.VILLAGER] + this.alive[ROLES.DETECTIVE] + this.alive[ROLES.MEDIC];
   }
+  /** @return The number of alive mafia players. */
   get numAliveMafia() : number {
     return this.alive[ROLES.MAFIA] + this.alive[ROLES.GODFATHER];
   }
   
+  /**
+   * Helper to set mafia settings in Constructor and updateSettings
+   * @param mafiaSettings The settings passed from the user.
+   */
   setMafiaSettings(mafiaSettings: any) {
     const {
       dayTimeLimit, 
@@ -240,6 +259,13 @@ export default class MafiaRoom extends Room {
     this.allowJoker = allowJoker;
   }
 
+  /**
+   * Creates a Mafia Room
+   * @param roomId current room id
+   * @param host the player creating room
+   * @param server the server in which this room is being created
+   * @param settings the settings player created room with
+   */
   constructor(roomId: string, host: Player, server: io.Server, settings: any) {
     super(roomId, host, server, 'mafia');
     const { 
@@ -255,6 +281,10 @@ export default class MafiaRoom extends Room {
     }
   }
 
+  /**
+   * Updates Settings and informs players of new settings
+   * @param settings new settings host wants
+   */
   updateSettings(settings: any) : any {
     const { 
       mafia
@@ -268,6 +298,9 @@ export default class MafiaRoom extends Room {
     };
   }
 
+  /**
+   * @returns the current room settings
+   */
   getSettings() : object {
     return {
       isPrivate: this.isPrivate, 
@@ -283,9 +316,7 @@ export default class MafiaRoom extends Room {
   }
 
   /**
-   * Initialize profiles
-   * 
-   * Initializes numAbstain
+   * Re-initializes all game state and starts the game.
    */
   begin() : any {
     super.begin();
@@ -297,7 +328,7 @@ export default class MafiaRoom extends Room {
     const targetNumMafia = getNumMafia(this.numMafia, this.members.length);
     this.alive[ROLES.MAFIA] = targetNumMafia;
 
-    let roles: ROLES[] = [];
+    const roles: ROLES[] = [];
     roles.length = this.members.length;
     // Put in numMafia roles
     for(var i = 0; i<targetNumMafia; i++) {
@@ -330,7 +361,6 @@ export default class MafiaRoom extends Room {
     
     // Shuffle all the roles. The new index corresponds to the players position
     shuffle(roles);
-    roles = [ROLES.DETECTIVE, ROLES.VILLAGER, ROLES.MAFIA, ROLES.MEDIC];
 
     const profiles: mafiaProfile[] = [];
     // Intializes all the profiles
@@ -354,8 +384,9 @@ export default class MafiaRoom extends Room {
     });
     this.playerRoles = roles; 
 
-    this.mainTimeRemaining = 2; // Phase 0 will have 5 seconds.
+    this.mainTimeRemaining = 5; // Phase 0 will have 5 seconds.
     this.isRecapPeriod = true;
+    /** @todo use invalid indices to prevent players from targeting others */
     const invalidIndices: Array<number> = [];
     const baseGameState = {
       time: this.mainTimeRemaining,
@@ -368,6 +399,9 @@ export default class MafiaRoom extends Room {
       invalidIndices,
     }
 
+    /*
+      Informs each player of their role and that the game has no started
+    */
     this.members.forEach((member, index) => {
       const socket = member.socket;
       let myInvalidIndices: Array<number> = [];
@@ -413,11 +447,16 @@ export default class MafiaRoom extends Room {
     this.phase = 0;
     this.memberProfiles = [];
     this.playerRoles = [];
+    // Set the number of each role alive to 0
     for(let i=0; i<ROLES.NUM_ROLES; i++) {
       this.alive[i] = 0;
     }
   }
 
+  /**
+   * Used after abstaining or killing someone during the day
+   * Sets the phase to the recapPeriod of day time, and prevents further actions.
+   */
   endDay() {
     this.mainTimeRemaining = 0;
     //force the recap period to be shown to hopefully prevent starting a trial *fingers crossed*
@@ -438,11 +477,18 @@ export default class MafiaRoom extends Room {
     this.secondaryInterval = setInterval(() => this.secondarySendTime(), 1000);
   }
 
+  /**
+   * Wrapper around the call to create the mainInterval. Want to send the time 
+   * before starting the timing process to create a more instant reaction
+   */
   beginMainTime() {
     this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining, this.isRecapPeriod]);
     this.mainInterval = setInterval(() => this.sendTime(), 1000);
   }
 
+  /**
+   * Reseume main time after stopping the secondary time
+   */
   resumeMainTime() {
     if (this.secondaryInterval) {
       clearInterval(this.secondaryInterval);
@@ -472,10 +518,14 @@ export default class MafiaRoom extends Room {
     this.server.to(this.roomId).emit('secondaryTimeUpdate', [this.phase, this.secondaryTimeRemaining, this.isDefending]);
   }
 
+  /**
+   * Keeps track of all targeting requests. Results compiled in interactionResults method
+   * @param myIndex index of person making request
+   * @param targetIndex index of person being targeted
+   */
   trackInteractionRequest(myIndex: number, targetIndex: number) {
     const myProfile = this.memberProfiles[myIndex];
     const myPlayer = this.members[myIndex];
-    const targetProfile = this.memberProfiles[targetIndex];
     const targetPlayer = this.members[targetIndex];
     const oldTarget = myProfile.targetOfPower;
     let message = '';
@@ -509,6 +559,10 @@ export default class MafiaRoom extends Room {
     }
   }
 
+  /**
+   * Run during each recap period and after sending day results. 
+   * Checks if game is over --  if it is, inform players.
+   */
   checkGameOver() {
     // console.log(`Phase:[${this.phase}] -- NumAlive:[${this.numAlive}]`);
     let winners: Set<ROLES> = new Set();
@@ -557,6 +611,11 @@ export default class MafiaRoom extends Room {
       })
     }
   }
+
+  /**
+   * Wrapper around killing a player. Currently only used to kill a random villager
+   * @param index index to kill
+   */
   killIndex(index: number) {
     const player = this.members[index];
     const profile = this.memberProfiles[index];
@@ -576,6 +635,10 @@ export default class MafiaRoom extends Room {
     player.emit('playerKilled', obj);
   }
 
+  /**
+   * To keep the game moving forward, after the numConsecutiveDaysWithoutDeath threshold,
+   * kill a random villager
+   */
   killRandomVillager() {
     const options: number[] = [];
 
@@ -588,6 +651,13 @@ export default class MafiaRoom extends Room {
     this.killIndex(options[getRandomInt(options.length)]);
   }
 
+  /**
+   * Sends all relevant parties results of their night interactions 
+   * 
+   * Includes: 
+   *  * players who were attacked or saved, 
+   *  * Detective results
+   */
   interactionResults() {
     const mafiaTargets: Array<number> = [];
     let detectiveTarget = -1;
@@ -611,7 +681,6 @@ export default class MafiaRoom extends Room {
 
     const mafiaTarget = getMafiaTarget(mafiaTargets);
     
-    let checkGameIsOver = false;
     this.members.forEach((player, index) => {
       let roleOfTarget: string | undefined = undefined;
       let message = '';
@@ -669,6 +738,10 @@ export default class MafiaRoom extends Room {
     });
   }
 
+  /**
+   * Informs players of interaction results
+   * Includes all deaths. This event updates the playerProfiles in client
+   */
   emitPublicInteractionResults() {
     const events = this.nightRecap;
     events.forEach(event => {
@@ -691,6 +764,9 @@ export default class MafiaRoom extends Room {
     });
     this.nightRecap = [];
   }
+  /**
+   * Sends whether or not the player on trial has been killed
+   */
   sendCourtResult() {
     let numGuiltyVotes = 0;
     let numNotGuiltyVotes = 0; 
@@ -708,7 +784,6 @@ export default class MafiaRoom extends Room {
 
     const trialPlayer = this.members[this.onTrial];
     const trialProfile = this.memberProfiles[this.onTrial];
-    const playerRoles: ROLES[] = [];
     let message = '';
     if (numGuiltyVotes > numNotGuiltyVotes) {
       trialProfile.isAlive = false;
@@ -744,6 +819,9 @@ export default class MafiaRoom extends Room {
     }
   }
 
+  /**
+   * Clears votes of person on trial
+   */
   clearVotes() {
     this.memberProfiles.forEach(profile => {
       profile.guiltyDecision = '';
@@ -754,6 +832,11 @@ export default class MafiaRoom extends Room {
     this.onTrial = -1;
   }
   
+  /**
+   * Handles client requests to vote guilty or not guilty during the trial
+   * @param myIndex index of person making request
+   * @param decision either guilty OR not guilty
+   */
   voteGuilty(myIndex: number, decision: string) {
     const myPlayer = this.members[myIndex];
     const myProfile = this.memberProfiles[myIndex];
@@ -797,7 +880,9 @@ export default class MafiaRoom extends Room {
       newDecision: myProfile.guiltyDecision,
       oldDecision: oldDecision,
     };
+    // Inform the room of a player's vote
     myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedGuiltyDecision', baseObj);
+    // Inform the player their vote has been processed.
     myPlayer.emit('iVotedGuiltyDecision', baseObj);
   }
 
@@ -809,6 +894,7 @@ export default class MafiaRoom extends Room {
     this.mainTimeRemaining -= 1;
     let emitIndividualNightResults = false;
     let emitPublicNightResults = false;
+    // If maintime remaining it -1, we have to switch contexts -- a lot of checking needs to be done
     if(this.mainTimeRemaining === -1) {
       if (this.isRecapPeriod) {
         this.isRecapPeriod = false;
@@ -838,6 +924,7 @@ export default class MafiaRoom extends Room {
             };
           });
           this.mainTimeRemaining = this.dayTimeLimit;
+          // Should emit public night results before going to daytime
           emitPublicNightResults = true;
         }
       }
@@ -864,6 +951,7 @@ export default class MafiaRoom extends Room {
         this.checkGameOver();
       }
     }
+    // Emit main time update to everyone in the room 
     this.server.to(this.roomId).emit('mainTimeUpdate', [this.phase, this.mainTimeRemaining, this.isRecapPeriod]);
     if (emitIndividualNightResults) {
       this.interactionResults();
@@ -954,11 +1042,13 @@ export default class MafiaRoom extends Room {
       newTarget: myProfile.votingFor,
       oldTarget,
     };
+    // Inform other players of your vote
     myPlayer.socket?.to(this.roomId).emit('otherPlayerVotedMafia', baseObj);
+    // Inform you of your vote
     myPlayer.emit('iVotedMafia', baseObj);
 
     const numNeeded = getHalf(this.numAlive);
-    
+    // If the number of abstain was increased we should check if it's more than half alive people
     if(checkAbstain && this.numAbstain >= numNeeded) {
       this.endDay();
       this.server.to(this.roomId).emit('mafiaChatUpdated', {
