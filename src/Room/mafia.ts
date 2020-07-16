@@ -84,31 +84,10 @@ function getNumMafia(numMafia: number, numMembers: number) : number {
   return 4;
 }
 
-/**
- * Function to interpret what phase and what number a phase is in
- * 
- * Ex) phase = 0 refers to day 0
- * 
- * Ex) phase = 1 refers to night 1
- * 
- * Ex) phase = 4 refers to day 2
- * @param phase a number indicating the phase
- */
-function interpretPhase(phase: number) : string {
-  const isEven = phase % 2 === 0;
-  if (isEven) {
-    const num = phase / 2;
-    return `day ${num}`;
-  }
-  else {
-    const num = (phase+1) / 2;
-    return `night ${num}`;
-  }
-}
-
 function isDay(phase: number) {
   return phase % 2 === 0;
 }
+
 
 function printExists(item: any, itemname: string) {
   if (item) {
@@ -408,30 +387,33 @@ export default class MafiaRoom extends Room {
    * Performs clean up of the mafia room
    */
   end() {
-    super.end();
-    if(this.mainInterval) {
-      clearInterval(this.mainInterval);
-      this.mainInterval = null;
-    }
-    if (this.secondaryInterval) {
-      clearInterval(this.secondaryInterval);
-      this.secondaryInterval = null;
-    }
-    
-    // Remove players from mafia channel
-    this.members.forEach((player,index) => {
-      const profile = this.memberProfiles[index];
-      if (profile.role === ROLES.MAFIA || profile.role === ROLES.GODFATHER) {
-        player.socket?.leave(this.mafiaRoomId);
+    if (this.currentlyInGame){
+      if(this.mainInterval) {
+        clearInterval(this.mainInterval);
+        this.mainInterval = null;
       }
-    })
-    this.phase = 0;
-    this.memberProfiles = [];
-    this.playerRoles = [];
-    // Set the number of each role alive to 0
-    for(let i=0; i<ROLES.NUM_ROLES; i++) {
-      this.alive[i] = 0;
+      if (this.secondaryInterval) {
+        clearInterval(this.secondaryInterval);
+        this.secondaryInterval = null;
+      }
+      
+      // Remove players from mafia channel
+      console.log(this.members);
+      this.members.forEach((player,index) => {
+        const profile = this.memberProfiles[index];
+        if (profile.role === ROLES.MAFIA || profile.role === ROLES.GODFATHER) {
+          player.socket?.leave(this.mafiaRoomId);
+        }
+      })
+      this.phase = 0;
+      this.memberProfiles = [];
+      this.playerRoles = [];
+      // Set the number of each role alive to 0
+      for(let i=0; i<ROLES.NUM_ROLES; i++) {
+        this.alive[i] = 0;
+      }
     }
+    super.end();
   }
 
   /**
@@ -1063,12 +1045,9 @@ export default class MafiaRoom extends Room {
    * @param userId The user id of the player sending a message
    * @param message The message the player sent
    */
-  updateChat(index: number, userId: string, message: string) {
+  updateChat(index: number, message: string) {
     const player = this.members[index];
     const profile = this.memberProfiles[index];
-    if (player.userId !== userId) {
-      console.log('out of order!');
-    }
     const tagMessage = `${player.username}: ${message}`;
     const baseObj = {
       audience: AUDIENCE.EVERYONE,

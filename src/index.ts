@@ -240,7 +240,7 @@ server.on("connection", (socket: Socket) => {
   socket.on('sendMafiaMessage', function({userId, index, message}) {
     const player = userIdToPlayer.get(userId)!;
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));
-    room.updateChat(index, userId, message);
+    room.updateChat(index, message);
   });
 
   socket.on('voteMafiaPlayer', function({userId, myIndex, targetIndex}) {
