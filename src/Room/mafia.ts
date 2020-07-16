@@ -335,7 +335,6 @@ export default class MafiaRoom extends Room {
       if (role === ROLES.MAFIA) {
         if (index < this.members.length) {
           const player = this.members[index];
-          console.log(`${player.username} joined mafia room`);
           player.socket?.join(this.mafiaRoomId);
         }
       }
@@ -397,7 +396,6 @@ export default class MafiaRoom extends Room {
       }
       
       // Remove players from mafia channel
-      console.log(this.members);
       this.members.forEach((player,index) => {
         const profile = this.memberProfiles[index];
         if (profile.role === ROLES.MAFIA || profile.role === ROLES.GODFATHER) {

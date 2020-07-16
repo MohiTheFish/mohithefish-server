@@ -49,17 +49,17 @@ gameChoices.forEach(game => {
  * @param nameSpaceToRooms The map used by the server to track which rooms are part of which game type
  */
 function deleteRoomFromNamespace(targetRoom: Room) {
-    const rooms: Array<Room> = nameSpaceToRooms.get(targetRoom.roomType)!;
-    for(let i=0; i<rooms.length; i++){
-      const room = rooms[i];
-      if (room === targetRoom) {
-        room.end();
-        room.informSpectators();
-        rooms.splice(i, 1);
-        break;
-      }
+  const rooms: Array<Room> = nameSpaceToRooms.get(targetRoom.roomType)!;
+  for(let i=0; i<rooms.length; i++){
+    const room = rooms[i];
+    if (room === targetRoom) {
+      room.end();
+      room.informSpectators();
+      rooms.splice(i, 1);
+      break;
     }
   }
+}
 
 function ejectPlayer(socket: io.Socket) : Player | undefined {
   const userId = socketToUserId.get(socket.id);
@@ -69,11 +69,13 @@ function ejectPlayer(socket: io.Socket) : Player | undefined {
   // If player is already in a room
   if (roomId) {
     // Remove them from that room
-    const currentRoom = rooms.get(roomId)!;
-    const shouldDeleteRoom = currentRoom.removePlayer(player);
-    if(shouldDeleteRoom) {
-      deleteRoomFromNamespace(currentRoom);
-      rooms.delete(roomId);
+    const currentRoom = rooms.get(roomId);
+    if(currentRoom) {
+      const shouldDeleteRoom = currentRoom.removePlayer(player);
+      if(shouldDeleteRoom) {
+        deleteRoomFromNamespace(currentRoom);
+        rooms.delete(roomId);
+      }
     }
   }
   return player;
