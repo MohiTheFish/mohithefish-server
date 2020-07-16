@@ -1,6 +1,6 @@
 import Room, {GAMESTARTED} from '../room';
 import Player from '../player';
-import {getRandomInt, getHalf, shuffle} from '../util';
+import {getHalf, shuffle, getRandomItem} from '../util';
 import { v4 as uuid } from 'uuid';
 import io from 'socket.io';
 
@@ -88,15 +88,14 @@ function isDay(phase: number) {
   return phase % 2 === 0;
 }
 
-
-function printExists(item: any, itemname: string) {
-  if (item) {
-    console.log(`${itemname} exists`);
-  }
-  else {
-    console.log(`${itemname} does not exist`);
-  }
-}
+// function printExists(item: any, itemname: string) {
+//   if (item) {
+//     console.log(`${itemname} exists`);
+//   }
+//   else {
+//     console.log(`${itemname} does not exist`);
+//   }
+// }
 
 function getMafiaTarget(mafiaTargets: number[]) : number {
   const frequency: Map<number, number> = new Map<number, number>();
@@ -123,7 +122,7 @@ function getMafiaTarget(mafiaTargets: number[]) : number {
       counts.push(key);
     }
   });
-  return counts[getRandomInt(counts.length)];
+  return getRandomItem(counts);
 }
 
 const ABSTAIN: number = -2;
@@ -234,8 +233,8 @@ export default class MafiaRoom extends Room {
     } = settings;
 
     this.isPrivate = isPrivate;
-    this.mafiaRoomId = uuid();
     this.setMafiaSettings(mafia);
+    this.mafiaRoomId = uuid();
     for(let i=0; i<ROLES.NUM_ROLES; i++) {
       this.alive.push(0);
     }
@@ -611,7 +610,7 @@ export default class MafiaRoom extends Room {
       }
     });
 
-    this.killIndex(options[getRandomInt(options.length)]);
+    this.killIndex(getRandomItem(options));
   }
 
   /**

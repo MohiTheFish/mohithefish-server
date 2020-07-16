@@ -187,15 +187,16 @@ server.on("connection", (socket: Socket) => {
     // The user is trying to join a room.
     const {targetRoom, userId, submittedId} = data;
     const room = rooms.get(targetRoom);
-    // If room exists
     
     if (room) {
-      // Get player and add them to room;
-      const player = userIdToPlayer.get(userId)!;
-      room.addPlayer(player);
+      if(room.canJoin(submittedId)) {
+        // Get player and add them to room;
+        const player = userIdToPlayer.get(userId)!;
+        room.addPlayer(player);
+      }
     }
     else {
-      socket.emit('invalidRoom', `${targetRoom} was not found.`);
+      socket.emit('invalidRoom');
     }
   });
 

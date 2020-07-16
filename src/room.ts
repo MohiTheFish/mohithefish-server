@@ -72,11 +72,9 @@ export default class Room {
   
   /**
    * Allows hosts to update settings by providing an object listing all the new settings.
-   * @param settings Object listing all the game settings the player wants to use
+   * @param _settings Object listing all the game settings the player wants to use
    */
-  updateSettings(settings:any) {
-    // Set is private eventually
-  }
+  updateSettings(_settings:any){};
   /** 
    * Overloaded by subclasses.
    * @returns an object containing all the settings used by the specific game type. 
@@ -93,6 +91,10 @@ export default class Room {
       members: getPlayerNames(this.members),
       roomId: this.roomId,
     };
+  }
+
+  canJoin(submittedId: boolean) : boolean {
+    return (!this.isPrivate || this.isPrivate && submittedId);
   }
 
   /**

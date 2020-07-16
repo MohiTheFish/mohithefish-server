@@ -1,6 +1,6 @@
 import Room, {GAMESTARTED} from '../room';
 import Player from '../player';
-import {getRandomInt} from '../util'
+import {getRandomItem, getRandomInt} from '../util'
 
 import io from 'socket.io';
 
@@ -185,7 +185,7 @@ export default class SpyfallRoom extends Room {
     this.roomInterval = setInterval(() => this.sendTime(), 1000);
     
     const list = getList(this.gameType);
-    const secretItem = list[getRandomInt(list.length)];
+    const secretItem = getRandomItem(list);
     const gameState = {
       spyIndex: this.spyIndex,
       time: this.timeRemaining,

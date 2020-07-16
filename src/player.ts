@@ -1,5 +1,5 @@
 import io from 'socket.io';
-import {getRandomInt} from './util';
+import {getRandomItem} from './util';
 
 const randomNameOptions = [
   'Helix',
@@ -14,11 +14,15 @@ const randomNameOptions = [
 ];
 
 export default class Player {
+  /** The player's selected username */
   username: string = "";
-  gamename: string = "";
-  userId: string;
-  disconnectTime: number;
+  /** The room the player is in. */
   roomId: string;
+  /** The userId of the player. Generated in the client */
+  userId: string;
+  /** DisconnectTime. Used to decide whether a player should be removed after returnToLobby is called */
+  disconnectTime: number;
+  /** The socket of the player */
   socket: io.Socket | null;
 
   constructor(userId: string, playerSocket: io.Socket) {
@@ -28,12 +32,16 @@ export default class Player {
     this.socket = playerSocket;
   }
 
+  /**
+   * Updates a player's name
+   * @param name new name. if empty, a random one from randomNameOptions will be selected
+   */
   updateName(name: string) {
     if(name) {
       this.username = name;
     }
     else {
-      const randomName = randomNameOptions[getRandomInt(randomNameOptions.length)];
+      const randomName = getRandomItem(randomNameOptions);
       this.username = `Anonymous ${randomName}`;
     }
   }

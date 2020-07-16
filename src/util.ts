@@ -19,6 +19,9 @@ export function getRandomInt(max: number) : number {
   return Math.floor(Math.random() * Math.floor(max));
 }
 
+export function getRandomItem(a: any[]) : any {
+  return a[getRandomInt(a.length)];
+}
 export function getHalf(number: number) : number {
   return Math.floor((number) / 2) + 1;
 }
