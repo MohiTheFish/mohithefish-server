@@ -20,7 +20,7 @@
     "@types/uuid": "^8.0.0",
     "http": "0.0.1-security",
     "rimraf": "^3.0.2",
-    "socket.io": "^2.3.0",
+    "socket.io": "^2.4.0",
     "typescript": "^3.9.5",
     "uuid": "^8.1.0"
   },
