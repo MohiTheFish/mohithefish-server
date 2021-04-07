@@ -17,7 +17,7 @@ const server = io.listen((process.env.PORT || 5000), {
 //http:localhost:5000/:game/:roomId
 
 /** Supported game choices */
-const gameChoices = ['spyfall', 'mafia'];
+const gameChoices = ['spyfall', 'mafia', 'dos'];
 /** Maps a gametype to the list of rooms of that gametype */
 const nameSpaceToRooms = new Map<string, Room[]>();
 /** Maps roomId to the room itself */
