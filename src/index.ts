@@ -1,20 +1,27 @@
 
-import io, {Socket} from "socket.io";
+import {Server, Socket} from "socket.io";
 import { v4 as uuid } from 'uuid';
 import Player from './player';
 import Room, {ConciseRoomInfo} from './room';
 import SpyfallRoom from './Room/spyfall';
 import MafiaRoom from "./Room/mafia";
 
-var allowedOrigins = "*:*";
+var allowedOrigins = "*";
 if (process.env.PORT) {
   allowedOrigins = "http://mohithefish.github.io/:* http://mohithefish.github.io:*";
 }
-const server = io.listen((process.env.PORT || 5000), {
-  origins: allowedOrigins
-});
 
-//http:localhost:5000/:game/:roomId
+const server = new Server({
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"]
+  }
+});
+let portNum = 5000;
+if (process.env.PORT) {
+  portNum = Number.parseInt(process.env.PORT);
+}
+server.listen(portNum);
 
 /** Supported game choices */
 const gameChoices = ['spyfall', 'mafia', 'dos'];
@@ -61,7 +68,7 @@ function deleteRoomFromNamespace(targetRoom: Room) {
   }
 }
 
-function ejectPlayer(socket: io.Socket) : Player | undefined {
+function ejectPlayer(socket: any) : Player | undefined {
   const userId = socketToUserId.get(socket.id);
   if (!userId) {return;}
   const player = userIdToPlayer.get(userId)!;
@@ -240,25 +247,25 @@ server.on("connection", (socket: Socket) => {
   });
 
   // All these mafia events maaaaan
-  socket.on('sendMafiaMessage', function({userId, index, message}) {
+  socket.on('sendMafiaMessage', function({userId, index, message} : {userId: string, index: number, message: string}) {
     const player = userIdToPlayer.get(userId)!;
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));
     room.updateChat(index, message);
   });
 
-  socket.on('voteMafiaPlayer', function({userId, myIndex, targetIndex}) {
+  socket.on('voteMafiaPlayer', function({userId, myIndex, targetIndex} : {userId: string, myIndex: number, targetIndex: number}) {
     const player = userIdToPlayer.get(userId)!;
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));
     room.votePlayer(myIndex, targetIndex);
   });
 
-  socket.on('voteMafiaGuilty', function({userId, myIndex, decision}) {
+  socket.on('voteMafiaGuilty', function({userId, myIndex, decision} : {userId: string, myIndex: number, decision: string}) {
     const player = userIdToPlayer.get(userId)!;
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));
     room.voteGuilty(myIndex, decision);
   });
 
-  socket.on('interactMafia', function({userId, myIndex, targetIndex}) {
+  socket.on('interactMafia', function({userId, myIndex, targetIndex} : {userId: string, myIndex: number, targetIndex: number}) {
     const player = userIdToPlayer.get(userId)!;
     const room = (<MafiaRoom> (rooms.get(player.roomId)!));
     room.trackInteractionRequest(myIndex, targetIndex);
